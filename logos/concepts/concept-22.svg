@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- 概念二十二：favicon 专用稿 —— 无云纹、字身放大、笔画加粗、满版印面 -->
+  <!-- 供 16／32／48px 使用；大尺寸仍用带云纹的主标 -->
+  <!-- 传统色：朱砂 #9c3a2b / 宣白 #f2ece0 -->
+  <g id="icon">
+    <rect id="plate" width="512" height="512" rx="40" fill="#9c3a2b"/>
+    <g id="glyph-yun" transform="translate(256 250) scale(1.16) translate(-256 -270)"
+       fill="none" stroke="#f2ece0" stroke-width="34"
+       stroke-linecap="round" stroke-linejoin="round">
+      <path id="heng-1" d="M148 140H364"/>
+      <path id="heng-2" d="M176 200H336"/>
+      <path id="huizhuan" d="M196 262c-14 100 46 162 116 124 39-21 33-72-6-86-25-9-45 12-37 33"/>
+    </g>
+  </g>
+</svg>

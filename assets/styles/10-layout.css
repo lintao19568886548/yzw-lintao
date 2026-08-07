@@ -1,0 +1,824 @@
+/* 布局层：页面骨架与内容排布。
+ *
+ * 只负责组件之间的位置关系，不定义组件外观。所有页面共用这一套类，
+ * 页面级样式表原则上不再新增——需要新排布时优先在这里补通用类。
+ */
+
+/* 页面骨架 */
+.page {
+  display: grid;
+  gap: 1.75rem;
+  width: 100%;
+  max-width: 1240px;
+  min-width: 0;
+  margin: 0 auto;
+  padding: 2.5rem 2rem 4rem;
+}
+
+/* 栅格与 flex 的子项默认 min-width: auto，遇到不换行的内容（表格、长 id）
+ * 不会收缩，会一路把外层撑宽，页面因此出现横向滚动条。整条容器链都要归零。 */
+.page > *,
+.section,
+.subsection,
+.stack,
+[data-slot="card"],
+[data-slot="card-header"],
+[data-slot="card-content"],
+.table-shell,
+.copy,
+.collapse-body,
+/* 组件库元素同样要归零，否则容器链在这里断掉。这些类被 css_module
+ * 加了哈希，只能用包含匹配。 */
+[class*="dx-tabs"],
+[class*="dx-card"],
+[class*="dx-collapsible-content"] {
+  min-width: 0;
+}
+
+.page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.page-title {
+  display: grid;
+  gap: 0.375rem;
+}
+
+.page-subtitle {
+  color: var(--text-muted);
+}
+
+.page-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* 区块 */
+.section {
+  display: grid;
+  gap: 0.875rem;
+}
+
+.section-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.section-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.subsection {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+/* 纵向堆叠。用 flex 而非 grid，子项才能靠 margin-top: auto 贴底 */
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* 纵向紧凑堆叠。子项按内容宽度而不是拉伸到容器宽度——徽章一类的元素
+ * 被拉伸后会在窄列里挤扁，文字溢出。 */
+.stack-tight {
+  display: grid;
+  justify-items: start;
+  gap: 0.125rem;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* 栅格 */
+.grid-2 { display: grid; gap: 1rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.grid-3 { display: grid; gap: 1rem; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grid-4 { display: grid; gap: 1rem; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.grid-auto { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.grid-split { display: grid; gap: 1.25rem; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); align-items: stretch; }
+.grid-split.is-even { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* 配图 + 正文：图片按自身宽度占位，文字吃掉剩余空间。
+ * 图片单独占一整行时会把正文推到首屏之外，并排才读得到。 */
+.grid-media { display: grid; gap: 1rem; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); align-items: start; }
+/* 固定宽度的侧栏 + 自适应主区：树、目录一类的导航面板用这个 */
+.grid-aside { display: grid; gap: 1.25rem; grid-template-columns: minmax(0, 280px) minmax(0, 1fr); align-items: start; }
+
+/* 同排卡片等高，内容区跟着拉伸，避免高矮参差以及卡片底部大片空白。
+ *
+ * Card 的 class 属性会替换掉组件自身的类名，所以卡片外面都包了一层 div，
+ * 等高规则必须穿过这一层——只写直接子选择器是匹配不到的。 */
+.grid-2 > [data-slot="card"],
+.grid-3 > [data-slot="card"],
+.grid-4 > [data-slot="card"],
+.grid-split > [data-slot="card"],
+.grid-auto > [data-slot="card"],
+.grid-2 > * > [data-slot="card"],
+.grid-3 > * > [data-slot="card"],
+.grid-4 > * > [data-slot="card"],
+.grid-split > * > [data-slot="card"],
+.grid-auto > * > [data-slot="card"] {
+  height: 100%;
+}
+
+/* 卡片纵向铺满后，内容区和内层 stack 都要跟着拉伸，
+ * 贴底的操作区才有可以「顶」下去的空间。 */
+[data-slot="card"] {
+  display: flex;
+  flex-direction: column;
+}
+
+[data-slot="card-content"] {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+[data-slot="card-content"] > .stack { flex: 1; }
+
+/* 可点击的指标卡：外观与 Card 一致，但整块是按钮，用于「点进去看明细」 */
+.metric-button {
+  display: block;
+  width: 100%;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.metric-button:hover { background: var(--bg-hover); }
+
+.metric-button.is-active {
+  border-color: var(--text);
+  background: var(--bg-hover);
+}
+
+/* 卡片底部的操作区：同排卡片正文长短不一，按钮靠 auto 外边距贴底对齐 */
+.card-cta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  margin-top: auto;
+  padding-top: 0.25rem;
+}
+
+/* 键值对。
+ *
+ * 列宽下限给到 190px：150px 在宽屏上会切出七八列，每列横向空空、纵向却挤成
+ * 一团，读起来比列少的时候更费劲。行距也要比列距大，眼睛才知道该横着读。 */
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 1.25rem 1.5rem;
+  margin: 0;
+}
+
+.facts > div { display: grid; gap: 0.25rem; min-width: 0; }
+.facts > div.is-wide { grid-column: 1 / -1; }
+.facts dt { color: var(--text-muted); font-size: 0.75rem; }
+/* 值比标签更重更深：原来两者字号接近、颜色也只差一档，扫过去分不出主次 */
+.facts dd { margin: 0; color: var(--text); font-size: 0.9375rem; font-weight: 500; }
+
+/* 统计数字 */
+.stat { display: grid; gap: 0.375rem; }
+.stat-label { display: inline-flex; align-items: center; gap: 0.375rem; color: var(--text-muted); font-size: 0.8125rem; }
+.stat-label svg { width: 1rem; height: 1rem; }
+.stat-value { font-size: 1.75rem; font-weight: 600; line-height: 1.2; }
+.stat-caption { color: var(--text-muted); font-size: 0.75rem; }
+/* 并排小磁贴里的数字：1.75rem 会把「52750.00 ㎡」挤到换行 */
+.stat-value.is-compact { font-size: 1.375rem; }
+
+/* 正文块 */
+.copy { display: grid; gap: 0.375rem; }
+.copy p { color: var(--text-muted); }
+
+.empty {
+  margin: 0;
+  padding: 1.5rem;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.hint { color: var(--text-muted); font-size: 0.75rem; }
+
+/* 操作成功后的提示条：中性色，不抢主内容的注意力 */
+.notice {
+  margin: 0;
+  padding: 0.625rem 0.875rem;
+  border-radius: var(--radius);
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+}
+
+/* 表单 */
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.field { display: grid; gap: 0.375rem; min-width: 0; }
+.field.is-wide { grid-column: 1 / -1; }
+
+/* 字段里没有单一控件可以 for 关联时，用它代替 Label。
+ * 排版必须和组件库的 .dx-label 完全一致（0.8rem / line-height 1），
+ * 否则同排字段高度不同，筛选条底部对齐后标签行就会错开。 */
+.field-label {
+  display: flex;
+  align-items: center;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+/* 只读取值：与同排输入框等高，左对齐到标签，不做成控件的样子 */
+.field-static {
+  display: flex;
+  min-height: var(--control-h);
+  align-items: center;
+  color: var(--text);
+}
+
+.form-error {
+  margin: 0;
+  padding: 0.625rem 0.75rem;
+  border-radius: var(--radius);
+  background: rgb(224 62 62 / 8%);
+  color: var(--danger);
+}
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+/* 把破坏性操作推到最左，和右侧的取消/保存拉开距离，减少误触 */
+.form-actions .spacer { flex: 1; }
+
+/* form 元素自身没有布局，直接相邻的块会贴在一起——按钮会紧挨着最后一个
+ * 输入框，看着像输入框的一部分。
+ *
+ * 按父元素来判断，而不是枚举「前一个兄弟是什么」：只要按钮组直接挂在 form
+ * 下面就一定需要这段间距，而前面那个兄弟可能是 .form-grid、.stack、
+ * section 或别的什么，逐个列举总会漏。放在 .stack 等自带 gap 的容器里时
+ * 不匹配这条，不会叠加出双份间距。 */
+form > .form-actions,
+.form-grid + .form-actions,
+.form-error + .form-actions,
+.inline-form + .form-actions {
+  margin-top: 1.25rem;
+}
+
+.form-grid + .form-error { margin-top: 1rem; }
+
+.inline-form {
+  display: grid;
+  gap: 0.875rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--bg-subtle);
+}
+
+/* 可点击的列表条目：悬停才出现底色，不描边 */
+.list { display: grid; gap: 0.125rem; }
+
+.list-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 0.5rem;
+  border-radius: var(--radius);
+  color: inherit;
+  transition: background-color 120ms ease;
+}
+
+.list-item:hover { background: var(--bg-hover); }
+
+/* 条目作为可勾选项时的选中态，与磁贴一致 */
+.list-item.is-selected {
+  background: var(--bg-active);
+  box-shadow: inset 0 0 0 1px var(--text);
+}
+
+/* 用 button 当条目时要抹掉浏览器默认外观 */
+button.list-item {
+  width: 100%;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+button.list-item:disabled { cursor: not-allowed; opacity: 0.55; }
+.list-item.is-muted { opacity: 0.55; }
+.list-item-copy { display: grid; flex: 1; gap: 0.125rem; min-width: 0; }
+.list-item-copy strong { font-weight: 600; }
+.list-item-copy small { color: var(--text-muted); font-size: 0.75rem; }
+
+.list-icon {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: var(--radius);
+  background: var(--bg-hover);
+  color: var(--text-muted);
+}
+
+/* 卡片封面图：固定比例裁切，避免图片高矮不一把同排卡片撑得参差 */
+.card-media {
+  display: grid;
+  overflow: hidden;
+  place-items: center;
+  border-radius: var(--radius);
+  background: var(--bg-subtle);
+  aspect-ratio: 16 / 10;
+}
+
+.card-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.card-media-placeholder {
+  color: var(--text-faint);
+  font-size: 0.75rem;
+}
+
+/* 简介一类的长文本截断，保证卡片高度可预期。
+ * 固定占两行高度：只有一行简介的卡片不这样处理，下面的字段就会整体上移，
+ * 同排卡片的信息对不到一条线上。 */
+.line-clamp-2 {
+  display: -webkit-box;
+  overflow: hidden;
+  min-height: 3.2em;
+  color: var(--text-muted);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* 截断到三行并配展开按钮。不设 min-height——这里的段落长短不一，
+ * 撑高只会让短说明多出一块空白。 */
+.line-clamp-3 {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+/* 折叠面板内容 */
+/* 折叠行本身要看得出可点：组件库的触发器只有 1rem 上下内边距和一个
+ * 悬停下划线，在整屏宽度上就是一条看不出边界的空行。做成列表行：
+ * 悬停有底色、行间有分隔线、内边距收紧。 */
+[class*="dx-collapsible-trigger"] {
+  padding: 0.625rem 0.5rem;
+  border-radius: var(--radius);
+  gap: 0.75rem;
+  transition: background-color 120ms ease;
+}
+
+[class*="dx-collapsible-trigger"]:hover {
+  background: var(--bg-hover);
+  /* 下划线会把整行的文字都划上，改用底色表达可点 */
+  text-decoration-line: none;
+}
+
+/* 折叠箭头：收起朝下、展开朝上，方向本身就说明了下一次点击的结果 */
+.dx-collapsible-chevron {
+  flex-shrink: 0;
+  transition: transform 150ms ease;
+}
+
+[data-state="open"] > .dx-collapsible-chevron { transform: rotate(180deg); }
+
+/* 相邻折叠块之间补分隔线，长列表才分得清一行到哪儿结束 */
+.stack > [data-slot="collapsible"] + [data-slot="collapsible"],
+.stack > [class*="dx-collapsible"] + [class*="dx-collapsible"] {
+  border-top: 1px solid var(--line);
+}
+
+.collapse-summary {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.75rem;
+  min-width: 0;
+  text-align: left;
+}
+
+/* 摘要靠左成组，右侧只留展开箭头——名称和数值分踞屏幕两端读起来太散 */
+.collapse-summary > :first-child { margin-right: 0.25rem; }
+.collapse-summary span { color: var(--text-muted); font-size: 0.8125rem; }
+
+/* 标题行：折叠触发器占满剩余宽度，操作按钮跟在右侧、展开箭头之前。
+ * 按钮不能放进触发器里——那是个 button，嵌套可交互元素既不合法，
+ * 点「删除」也会顺手把折叠块展开或收起。 */
+.collapse-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.collapse-head > [class*="dx-collapsible-trigger"] { flex: 1; min-width: 0; }
+
+/* 折叠块内的操作按钮右对齐，不和正文抢左边的起始位置 */
+.collapse-actions {
+  display: flex;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+/* 浅底面板：把一段属于同一对象的字段圈起来，和同级的其他分节区分开，
+ * 避免展开后从标题一路铺到底、看不出哪些信息是一组的。 */
+.panel {
+  display: grid;
+  gap: 1.25rem;
+  padding: 1.25rem;
+  border-radius: var(--radius-lg);
+  background: var(--bg-subtle);
+}
+
+/* 并排的小磁贴用紧凑内边距，1.25rem 会让三格显得空 */
+.panel.is-tight { gap: 0.25rem; padding: 0.875rem 1rem; }
+
+/* 浅底面板里再嵌一层时用白底描边，否则两层同色糊成一片 */
+.panel.is-plain { border: 1px solid var(--line); background: var(--bg); }
+
+/* 正向指标磁贴：可招商面积这类需要一眼认出的数据 */
+.panel.is-ok {
+  border-color: color-mix(in oklab, var(--ok) 35%, transparent);
+  background: color-mix(in oklab, var(--ok) 6%, var(--bg));
+}
+
+/* 正向数值：可租面积、在租状态一类。表格单元格和统计数字都用它 */
+.is-ok { color: var(--ok); }
+
+/* 一行三格的基础字段：外框和下面的指标磁贴同宽同内边距，
+ * 上下两排的文字才在同一条起始线上，不会看着像交错的锯齿。 */
+.panel-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+}
+
+@media (max-width: 900px) {
+  .panel-row { grid-template-columns: 1fr; }
+}
+
+/* 折叠展开区：左侧加深边线 + 浅底，明确「以下内容属于上面那一行」。
+ * 不加包裹的话，展开出来的楼层、设施和下一个厂房在视觉上是平级的。 */
+.collapse-body.is-boxed,
+[class*="dx-collapsible-content"].collapse-body.is-boxed {
+  padding: 1.25rem;
+  border-left: 3px solid var(--primary-color-7);
+  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+  margin-bottom: 0.5rem;
+  background: var(--bg-subtle);
+}
+
+/* 可选中的信息磁贴：楼层、房间这类需要横向铺开又要能点选的条目 */
+.tile {
+  display: grid;
+  gap: 0.375rem;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.tile:hover { background: var(--bg-hover); }
+
+.tile[aria-pressed="true"] {
+  border-color: var(--text);
+  background: var(--bg-hover);
+}
+
+.tile-label { font-weight: 600; }
+
+/* 复选框形态的磁贴（角色勾选一类），选中态与按钮磁贴一致 */
+.tile.is-selected {
+  border-color: var(--text);
+  background: var(--bg-hover);
+}
+
+/* 时分两个下拉并排 */
+.time-field { display: flex; align-items: center; gap: 0.375rem; min-width: 0; }
+.time-field-separator { color: var(--text-muted); }
+
+/* 组件库没有对应物的原生控件，对齐到 Input 的外观，
+ * 否则同一行里高矮和圆角都对不上。 */
+.native-control {
+  width: 100%;
+  height: var(--control-h);
+  padding: 0 0.75rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: var(--bg);
+  box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--text);
+  font: inherit;
+}
+
+.native-control:disabled { color: var(--text-faint); cursor: not-allowed; }
+
+/* 删除是低频高危操作，不该用高饱和红块长期占据视觉中心。
+ * 平时只有文字用危险色，悬停才给淡红底——真要点的时候才强化。 */
+[class*="dx-button"].is-quiet-danger {
+  background: transparent;
+  color: var(--danger);
+}
+
+[class*="dx-button"].is-quiet-danger:not(:disabled):hover {
+  background: rgb(179 38 30 / 8%);
+}
+
+/* 组件库给内容容器写的是 display: contents，权重和 .collapse-body 相同，
+ * 而组件的样式表是渲染时注入的、排在本文件之后——平局由它胜出，容器盒子
+ * 直接消失，这里的内边距和间距全部失效。用两段选择器提高权重压过去。 */
+.collapse-body,
+[class*="dx-collapsible-content"].collapse-body {
+  display: grid;
+  gap: 1.25rem;
+  padding: 0.75rem 0 1.5rem;
+}
+
+@media (max-width: 900px) {
+  .page { gap: 1.25rem; padding: 1.25rem 1rem 3rem; }
+  .grid-2,
+  .grid-3,
+  .grid-4,
+  .grid-split,
+  .grid-aside,
+  .grid-media,
+  .grid-split.is-even { grid-template-columns: 1fr; }
+  .form-grid { grid-template-columns: 1fr; }
+  .form-actions { flex-direction: column-reverse; }
+  .form-actions button { width: 100%; }
+}
+
+/* 表格：组件库没有 table 组件，这里提供全站统一的表格外观 */
+.table-shell {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  /* macOS 的覆盖式滚动条静止时不可见，容易被误认为不能滚动 */
+  scrollbar-width: thin;
+}
+
+.table-shell::-webkit-scrollbar { height: 8px; }
+
+.table-shell::-webkit-scrollbar-thumb {
+  border-radius: 4px;
+  background: var(--primary-color-7);
+}
+
+.table-shell::-webkit-scrollbar-track { background: transparent; }
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  white-space: nowrap;
+  /* nowrap 必须配 min-width: max-content，两者缺一就会重叠。
+   *
+   * 只写 width: 100% 时，浏览器允许把列压到内容宽度以下；内容又被 nowrap
+   * 禁止折行，压缩的结果不是变窄而是**溢出到隔壁列上**。账单表的「待确认
+   * 差额」徽章就是这么盖住「收款」日期的：徽章 74px，所在单元格被压到
+   * 43px。
+   *
+   * 纯文本单元格通常不出事——nowrap 让它的 min-content 等于 max-content，
+   * 表格算法会照此保底。出事的是内部套了布局容器的单元格（.stack-tight 这
+   * 类 grid），容器的固有宽度上报不到外层，保底就失效了。与其逐个给容器补
+   * min-width，不如在表格这一层声明「不压缩」，装不下就让 .table-shell
+   * 横向滚动——它本来就是为此存在的。 */
+  min-width: max-content;
+}
+
+/* 列间距要够：相邻两列的内容各自贴着单元格边缘时，中间只剩不到 1rem，
+ * 徽章和下一列的文字看起来像同一组。 */
+.table th,
+.table td {
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+
+.table th {
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.table tbody tr:last-child td { border-bottom: none; }
+
+/* 分页：上一页/下一页是操作，做成有边框的按钮；页码是位置指示，
+ * 当前页保持朴素，不做成按钮的样子。
+ *
+ * 选择器要压过组件自身的 `.dx-pagination-link[data-size="icon"]`
+ * （类 + 属性，权重 0,2,0），所以这里用三层属性选择器（0,3,0）。
+ * 组件为英文 Previous/Next 设计了 2rem 见方的固定尺寸，中文会被压成竖排。 */
+[data-slot="pagination"] [data-slot="pagination-content"] {
+  gap: 0.5rem;
+}
+
+[data-slot="pagination"] [data-slot="pagination-content"] [data-slot="pagination-link"] {
+  width: auto;
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 0.75rem;
+  border-radius: var(--radius);
+  white-space: nowrap;
+}
+
+[data-slot="pagination"] [data-slot="pagination-content"] [data-slot="pagination-link"][data-kind="previous"],
+[data-slot="pagination"] [data-slot="pagination-content"] [data-slot="pagination-link"][data-kind="next"] {
+  border: 1px solid var(--line);
+}
+
+[data-slot="pagination"] [data-slot="pagination-content"] [data-slot="pagination-link"][data-kind="previous"]:hover,
+[data-slot="pagination"] [data-slot="pagination-content"] [data-slot="pagination-link"][data-kind="next"]:hover {
+  background: var(--bg-hover);
+}
+
+/* 当前页：纯指示，不带边框和背景 */
+[data-slot="pagination"] [data-slot="pagination-content"] [data-slot="pagination-link"][data-active="true"] {
+  border: none;
+  background: none;
+  color: var(--text);
+  font-weight: 600;
+}
+
+[data-slot="pagination"] [data-slot="pagination-ellipsis"] {
+  width: auto;
+  white-space: nowrap;
+}
+
+/* 操作列不换行：表格本身可横向滚动，按钮竖成一列反而更难用 */
+.table-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.375rem;
+}
+.table tbody tr:hover { background: var(--bg-hover); }
+
+/* 整行是明细入口时给出可点提示。行内的操作按钮自己拦冒泡。 */
+.table tbody tr.is-clickable { cursor: pointer; }
+.table td.is-wrap { max-width: 260px; white-space: normal; }
+.table .table-empty { padding: 2rem; color: var(--text-muted); text-align: center; }
+
+/* 单元格内的两栏键值对：标签窄列 + 等宽取值，比「建/收」这类单字前缀好认 */
+.cell-facts {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 0.375rem 0.75rem;
+  margin: 0;
+  align-items: baseline;
+}
+
+.cell-facts dt { color: var(--text-muted); font-size: 0.75rem; }
+.cell-facts dd { margin: 0; color: var(--text-muted); font-size: 0.75rem; }
+
+/* 单元格内的迷你进度条：数字负责精确读数，条形提供跨行的量级对比 */
+.cell-meter {
+  display: grid;
+  min-width: 4.5rem;
+  gap: 0.25rem;
+}
+
+.cell-meter [class*="dx-progress"] { height: 4px; }
+
+/* 表号、读数、电话一类的数字：等宽才好上下对比，也不容易看错位 */
+.is-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.table .is-mono { font-size: 0.8125rem; }
+
+/* 层级导航树：园区 / 楼栋 / 楼层 / 设备 */
+.tree { display: grid; gap: 0.0625rem; }
+.tree-node { display: grid; gap: 0.0625rem; }
+.tree-row { display: flex; align-items: center; gap: 0.125rem; min-width: 0; }
+
+/* 缩进靠导引线体现层级，比纯 padding 更容易看出归属 */
+.tree-branch {
+  display: grid;
+  gap: 0.0625rem;
+  margin-left: 0.6875rem;
+  padding-left: 0.5rem;
+  border-left: 1px solid var(--line);
+}
+
+.tree-toggle {
+  display: grid;
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+  place-items: center;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  line-height: 1;
+}
+
+.tree-toggle:hover { background: var(--bg-hover); color: var(--text); }
+
+.tree-label {
+  display: flex;
+  flex: 1;
+  align-items: baseline;
+  gap: 0.375rem;
+  min-width: 0;
+  padding: 0.3125rem 0.5rem;
+  border: none;
+  border-radius: var(--radius);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.tree-label:hover { background: var(--bg-hover); }
+.tree-label.is-active { background: var(--bg-active); font-weight: 500; }
+/* 设备是叶子节点，没有折叠按钮占位，补上等宽缩进对齐上一级标签 */
+.tree-label.is-leaf { margin-left: 1.375rem; }
+.tree-label small { flex-shrink: 0; }
+
+/* 筛选条 */
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem;
+}
+
+.filters .field { min-width: 160px; }
+
+/* 筛选条末尾的操作按钮（刷新、重置筛选…）。
+ *
+ * 160px 的最小宽度是给输入框准备的，套到按钮上有两个后果：按钮被拉宽成一块
+ * 与其内容不相称的色块，而且这多出来的宽度常常正好压垮一行，把按钮挤到下一
+ * 行去。按钮自己有合适的固有宽度，这里放开限制并推到行尾。 */
+.filters .field.is-action {
+  min-width: 0;
+  margin-inline-start: auto;
+}
+
+/* 可压缩字段（通常是检索框）：放宽最小宽度，让整排在容器变窄时先收窄，
+ * 而不是直接把末尾的按钮甩到下一行。 */
+.filters .field.is-flexible { min-width: 8rem; }
+
+@media (max-width: 900px) {
+  .filters { flex-direction: column; align-items: stretch; }
+  .filters .field { min-width: 0; }
+  /* 竖排时每个字段独占一行，靠右推没有意义，反而会让按钮脱离拉伸对齐 */
+  .filters .field.is-action { margin-inline-start: 0; }
+}

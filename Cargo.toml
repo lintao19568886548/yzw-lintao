@@ -1,0 +1,93 @@
+[workspace]
+members = [".", "pure", "server/spacetimedb"]
+# 现场排查工具独立编译，不进主构建：它只在装机时用一次，没必要让每次
+# `cargo test` 都跟着编译它，也没必要让它的依赖进主程序的依赖树。
+exclude = ["tools/onvif-discover"]
+resolver = "2"
+
+[workspace.dependencies]
+log = "0.4"
+serde = { version = "1", features = ["derive"] }
+spacetimedb = "=2.6.1"
+serde_json = "1"
+
+[package]
+name = "parkwise"
+version = "0.1.0"
+authors = ["MAOSEN ZHOU <wixuyue@gmail.com>"]
+edition = "2021"
+
+# Cargo 清单字段说明：https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+dioxus = { version = "0.7.1", features = ["router", "fullstack"] }
+pure_function = { path = "pure" }
+futures-channel = "0.3"
+qrcode = { version = "0.14", default-features = false, features = ["svg"] }
+serde.workspace = true
+serde_json.workspace = true
+sha2 = "0.10"
+base64 = "0.22"
+dioxus-primitives = { git = "https://github.com/DioxusLabs/components", version = "0.0.1", default-features = false }
+dioxus-icons = { version = "0.1.0", default-features = false }
+time = { version = "0.3.44", default-features = false }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+gloo-net = "0.6"
+js-sys = "0.3"
+# 日历要读「今天」。浏览器 WASM 没有 SystemTime，不开这个特性 time 会走
+# std 分支并 panic 在「time not implemented on this platform」。
+time = { version = "0.3.44", default-features = false, features = ["wasm-bindgen"] }
+spacetimedb-sdk = { version = "2.6.1", features = ["browser"] }
+wasm-bindgen = "0.2"
+# EventTarget：自动重连要监听 online / visibilitychange / focus 才能秒回。
+web-sys = { version = "0.3", features = ["Blob", "BlobPropertyBag", "Document", "DomTokenList", "Element", "EventTarget", "File", "HtmlElement", "Location", "Navigator", "Url", "UrlSearchParams", "Window"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# 这些依赖只在 Dioxus 服务端使用，由 `server` feature 显式启用。
+aws-config = { version = "1.0", features = ["behavior-version-latest"], optional = true }
+aws-sdk-s3 = { version = "1.0", optional = true }
+dotenvy = { version = "0.15", optional = true }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+spacetimedb-sdk = "2.6.1"
+tokio = { version = "1", features = ["time"], optional = true }
+calamine = { version = "0.36", optional = true }
+rust_xlsxwriter = { version = "0.96", optional = true }
+
+[dev-dependencies]
+dioxus-history = "0.7.9"
+dioxus-ssr = "0.7.9"
+
+[features]
+default = ["web"]
+web = ["dioxus/web"]
+server = [
+    "dioxus/server",
+    "dep:aws-config",
+    "dep:aws-sdk-s3",
+    "dep:dotenvy",
+    "dep:tokio",
+    "dep:calamine",
+    "dep:rust_xlsxwriter",
+]
+
+# 正式 Web 产物去除 DWARF 调试段，避免 wasm-opt 解析失败并减小首屏下载体积。
+# 调试构建默认带完整 debuginfo，本项目依赖很多（组件库、SpacetimeDB SDK、
+# AWS SDK…），产出的 wasm 会到几百 MB。浏览器编译这么大的模块要花很久，
+# 表现就是打开页面直接「Page Unresponsive」。
+#
+# 自己的代码保留行号级调试信息，依赖一律去掉 debuginfo 并做基础优化——
+# 依赖不需要单步调试，而它们才是体积的大头。
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false
+opt-level = 1
+
+[profile.release]
+opt-level = "z"
+lto = "thin"
+codegen-units = 1
+panic = "abort"
+strip = "debuginfo"

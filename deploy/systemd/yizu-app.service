@@ -1,0 +1,20 @@
+[Unit]
+Description=Yizu Dioxus Fullstack Service
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/yizu/current
+EnvironmentFile=/opt/yizu/.env
+Environment=IP=127.0.0.1
+Environment=PORT=8081
+Environment=DIOXUS_ASSET_ROOT=/opt/yizu/current/public
+ExecStart=/opt/yizu/current/server
+Restart=always
+RestartSec=5
+KillSignal=SIGINT
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target

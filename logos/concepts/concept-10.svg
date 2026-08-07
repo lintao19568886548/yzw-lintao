@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- 概念十：方中有云。无底板，单色。顶边两处凸起取云头/城阙意，中开门洞 -->
+  <!-- 传统色：靛蓝 #16324f -->
+  <g id="icon">
+    <path id="mark"
+          d="M64 448V160h64v-48h64v48h128v-48h64v48h64v288ZM144 240h224v144H144z"
+          fill="#16324f" fill-rule="evenodd"/>
+  </g>
+</svg>

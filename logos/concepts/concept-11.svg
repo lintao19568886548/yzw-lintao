@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- 概念十一：仿小篆「云」· 朱砂阳文方印 -->
+  <!-- 小篆构形：二横在上（天气），下作回转曲笔（云气盘旋） -->
+  <!-- 笔法：线宽恒定 36，圆起圆收，转折圆转不方折 -->
+  <!-- 传统色：朱砂 #9c3a2b / 宣白 #f2ece0 -->
+  <g id="icon">
+    <rect id="plate" x="48" y="48" width="416" height="416" rx="10" fill="#9c3a2b"/>
+    <g id="glyph-yun" fill="none" stroke="#f2ece0" stroke-width="36"
+       stroke-linecap="round" stroke-linejoin="round">
+      <path id="heng-1" d="M148 156Q256 140 364 156"/>
+      <path id="heng-2" d="M176 222Q256 208 336 222"/>
+      <path id="huizhuan" d="M190 282c-8 74 64 114 122 80 40-24 28-70-12-58"/>
+    </g>
+  </g>
+</svg>

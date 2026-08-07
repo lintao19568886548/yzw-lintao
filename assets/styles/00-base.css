@@ -1,0 +1,230 @@
+/* 基础层：重置、排版与设计令牌。
+ *
+ * 设计语言参照 Notion：内容区纯白，侧边栏暖灰，近黑文字，发丝级分隔线，
+ * 小圆角，几乎不用阴影。层级由字号、字重和留白建立，颜色只用于强调。
+ *
+ * 组件本身的样式来自 dioxus-components（src/components/<name>/style.css），
+ * 这里不重复定义组件外观，只提供令牌和全局排版。
+ */
+
+:root {
+  /* 组件库主题用 `var(--dark, A) var(--light, B)` 的空值开关切换明暗。
+   * 本应用目前只设计了亮色，这里固定走亮色分支——否则系统处于深色模式时
+   * 组件会取到深色分支的变量，和这里的亮色令牌混在一起。 */
+  --light: initial;
+  --dark: ;
+
+  /* 底色：内容区纯白，次级面板与侧边栏暖灰 */
+  --bg: #fff;
+  --bg-subtle: #f7f7f5;
+  --bg-hover: rgb(55 53 47 / 6%);
+  --bg-active: rgb(55 53 47 / 8%);
+
+  /* 文字：近黑而非纯黑，次要信息中灰 */
+  --text: #37352f;
+  --text-muted: #787774;
+  --text-faint: #9b9a97;
+
+  --line: rgb(55 53 47 / 9%);
+  --accent: #2383e2;
+  --danger: #b3261e;
+  /* 可招商、在租一类的正向状态。低饱和深绿，和中性体系放一起不刺眼 */
+  --ok: #2f7a4d;
+
+  --radius: 4px;
+  --radius-lg: 6px;
+
+  /* 组件库给 Button 定了固定高度，Input 却只有内边距，两者并排会差几个像素。
+   * 统一到同一个控件高度，表单和筛选条才对得齐。 */
+  --control-h: 2.25rem;
+
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+
+  /* 供 dioxus-components 使用的令牌，映射到上面的调色板 */
+  --primary-color: var(--bg);
+  --primary-color-1: var(--bg);
+  --primary-color-2: var(--bg);
+  --primary-color-3: var(--bg-subtle);
+  --primary-color-4: rgb(55 53 47 / 4%);
+  --primary-color-5: var(--bg-hover);
+  --primary-color-6: var(--line);
+  --primary-color-7: var(--text-faint);
+  --secondary-color: var(--text);
+  --secondary-color-1: var(--text);
+  --secondary-color-2: var(--text);
+  --secondary-color-3: var(--text);
+  --secondary-color-4: var(--text);
+  --secondary-color-5: var(--text-muted);
+  --secondary-color-6: var(--text-faint);
+  --focused-border-color: var(--accent);
+
+  /* 组件库的危险色默认偏艳，收敛成与中性体系协调的深红 */
+  --primary-error-color: var(--danger);
+  --secondary-error-color: #8f1d18;
+  --contrast-error-color: #fff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#main {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+}
+
+html {
+  background: var(--bg);
+  overflow-x: hidden;
+  overscroll-behavior: none;
+}
+
+body {
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-x: hidden;
+  overscroll-behavior: none;
+  text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+h1 { font-size: 1.75rem; }
+h2 { font-size: 1.25rem; }
+h3 { font-size: 1.0625rem; }
+h4 { font-size: 0.875rem; }
+
+p {
+  margin: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* 组件外观微调：这些属性组件库给的默认值偏「卡片化」，
+ * 与 Notion 的平铺感冲突，统一收敛。 */
+[data-slot="card"] {
+  border-radius: var(--radius-lg);
+  box-shadow: none;
+}
+
+[data-slot="sidebar-container"],
+[data-slot="sidebar-inner"] {
+  --dx-sidebar-background: var(--bg-subtle);
+  --dx-sidebar-border: transparent;
+}
+
+[data-slot="sidebar-menu-button"]:hover,
+[data-slot="sidebar-menu-sub-button"]:hover {
+  background: var(--bg-hover);
+}
+
+[data-slot="sidebar-menu-button"][data-active="true"] {
+  background: var(--bg-active);
+  font-weight: 500;
+}
+
+/* css_module 会给类名加哈希（.dx-badge 编译成 .dx-badge-1a2b3c4d），
+ * 没有 data-slot 的组件只能用包含匹配。 */
+[class*="dx-badge"] {
+  border-radius: 3px;
+  font-weight: 500;
+  /* 徽章不参与压缩：放进窄的表格列里被挤扁后，文字会溢出成一坨 */
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+[class*="dx-separator"] {
+  background: var(--line);
+}
+
+/* 组件库给进度条设了 min-width: 200px，放进表格单元格或窄卡片会把容器撑宽。
+ * 宽度一律由容器决定。 */
+[class*="dx-progress"] {
+  min-width: 0;
+}
+
+/* 弹窗：组件库没有给高度上限，内容一长就顶出视口且无法滚动；
+ * 字体栈也是写死的西文列表，这里都收回到本应用的令牌。
+ *
+ * 必须排除遮罩层——它的类名同样以 dx-dialog 开头，套上高度上限后会比视口
+ * 矮一截，底部露出一条没有变暗的白边。
+ *
+ * 注意这条 overflow 会让弹窗成为滚动容器，内部 `position: absolute` 的浮层
+ * （日历、下拉）超出边界就会被裁掉。浮层一律左对齐触发器即可避开，见
+ * date_picker 里的 ContentAlign::Start。 */
+[class*="dx-dialog"]:not([class*="backdrop"]),
+[class*="dx-alert-dialog"]:not([class*="backdrop"]) {
+  max-height: calc(100dvh - 4rem);
+  overflow-y: auto;
+  font-family: inherit;
+}
+
+/* 表单类弹窗放得下两列栅格，32rem 会把字段挤成一列 */
+@media (width >= 40rem) {
+  [class*="dx-dialog"]:not([class*="backdrop"]) { max-width: 42rem; }
+
+  /* 明细可增删的复合表单（总账单等），两列栅格外还要放得下明细卡片 */
+  [class*="dx-dialog"].is-wide { max-width: 64rem; }
+}
+
+/* 组件库的下拉列表没有任何高度上限，选项一多就整屏铺开——24 个小时选项
+ * 就已经盖住整个页面。限高并允许滚动，园区、销售这些长列表一并受益。 */
+[class*="dx-select-list"] {
+  max-height: 16rem;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+/* 高度交给 --control-h，内边距只留水平方向，文字由组件自身的
+ * flex 居中处理，改高度时不会把文字挤出边框。 */
+[class*="dx-input"],
+[class*="dx-select-trigger"] {
+  height: var(--control-h);
+  padding-block: 0;
+}
+
+/* 触发器至少放得下一段短标签：没有选中项时它会收缩成只剩一个箭头，
+ * 在筛选条里看着像个坏掉的控件。 */
+[class*="dx-select-trigger"] { min-width: 9rem; }
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+/* SVG 没有固有尺寸，不约束就会撑满容器。图标统一跟随字号。 */
+.icon {
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+}
+
+.sr-only {
+  position: absolute;
+  overflow: hidden;
+  width: 1px;
+  height: 1px;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- 概念十七：仿小篆「云」入囗围合 —— 云 + 园 合文 -->
+  <!-- 囗取小篆围合，四角圆转；字与框线宽一致，全篇一笔性 -->
+  <!-- 传统色：玄墨 #161c22 / 古铜金 #c19a4f -->
+  <g id="icon">
+    <rect id="plate" x="48" y="48" width="416" height="416" rx="10" fill="#161c22"/>
+    <g fill="none" stroke="#c19a4f" stroke-linecap="round" stroke-linejoin="round">
+      <rect id="wei" x="110" y="96" width="292" height="320" rx="38" stroke-width="26"/>
+      <g id="glyph-yun" transform="translate(256 256) scale(0.82) translate(-256 -270)"
+         stroke-width="32">
+        <path id="heng-1" d="M148 140H364"/>
+        <path id="heng-2" d="M176 200H336"/>
+        <path id="huizhuan" d="M196 258c-18 106 44 176 120 138 46-23 44-82 2-100-30-13-58 6-54 36 3 21 24 29 38 16"/>
+      </g>
+    </g>
+  </g>
+</svg>

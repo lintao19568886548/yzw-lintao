@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- 概念四：锯齿厂房屋顶，云作低对比背景层 -->
+  <!-- 传统色：鸦青 #2f3f4a / 缟色 #f0ece3 / 朱砂 #c1432e -->
+  <g id="icon">
+    <rect id="plate" width="512" height="512" rx="112" fill="#2f3f4a"/>
+    <g id="cloud" fill="#3b4d59">
+      <circle cx="180" cy="146" r="46"/>
+      <circle cx="232" cy="122" r="62"/>
+      <circle cx="288" cy="148" r="44"/>
+      <rect x="180" y="146" width="108" height="46"/>
+    </g>
+    <path id="factory" d="M96 408V244l106 64v-64l106 64v-64l106 64v100Z" fill="#f0ece3"/>
+    <rect id="door" x="234" y="330" width="44" height="78" rx="12" fill="#c1432e"/>
+  </g>
+</svg>

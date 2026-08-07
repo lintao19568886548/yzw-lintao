@@ -1,0 +1,21 @@
+[package]
+name = "parkwise_server"
+version = "0.1.0"
+edition = "2024"
+
+# Cargo 清单字段说明：https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+bcrypt = { package = "bcrypt-no-getrandom", version = "0.16.0" }
+base64 = "0.22"
+hmac = "0.12"
+log.workspace = true
+md-5 = "0.10"
+serde.workspace = true
+sha2 = "0.10"
+spacetimedb.workspace = true
+pure_function = { path = "../../pure" }
+serde_json.workspace = true

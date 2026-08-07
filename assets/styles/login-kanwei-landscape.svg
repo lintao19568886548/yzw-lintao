@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1200" role="img" aria-label="Abstract blue-green Chinese garden landscape">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#07142f"/>
+      <stop offset="0.55" stop-color="#0d2854"/>
+      <stop offset="1" stop-color="#12365d"/>
+    </linearGradient>
+    <linearGradient id="river" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d8edf0"/>
+      <stop offset="1" stop-color="#65aebb"/>
+    </linearGradient>
+    <pattern id="dots" width="18" height="18" patternUnits="userSpaceOnUse">
+      <circle cx="3" cy="3" r="2" fill="#78a6ad" opacity=".28"/>
+      <circle cx="12" cy="10" r="1.5" fill="#9bc0b2" opacity=".2"/>
+    </pattern>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="14"/>
+    </filter>
+  </defs>
+  <rect width="900" height="1200" fill="url(#sky)"/>
+  <circle cx="715" cy="180" r="142" fill="#1e4a78" opacity=".42" filter="url(#soft)"/>
+  <path d="M0 270C105 178 214 212 295 126C344 74 407 42 478 58C554 75 586 151 653 166C724 181 787 123 900 96V520H0Z" fill="#0b2148"/>
+  <path d="M0 362C120 282 222 320 308 245C392 171 496 157 586 221C673 283 768 248 900 178V632H0Z" fill="#12335e"/>
+  <path d="M0 424C121 349 224 386 317 318C421 242 538 278 618 353C708 437 790 383 900 315V720H0Z" fill="#174b70"/>
+  <path d="M0 362C120 282 222 320 308 245C392 171 496 157 586 221C673 283 768 248 900 178V632H0Z" fill="url(#dots)" opacity=".55"/>
+  <path d="M0 548C94 459 194 484 265 428C335 373 408 389 470 451C531 512 606 502 685 450C754 405 819 420 900 478V1200H0Z" fill="#1d5a73"/>
+  <path d="M0 662C101 572 217 590 299 521C374 459 468 499 536 574C604 649 694 635 766 579C819 538 858 552 900 580V1200H0Z" fill="#2f7380"/>
+  <path d="M0 762C132 654 260 685 345 628C429 571 510 618 581 699C640 766 727 769 900 662V1200H0Z" fill="#4d8d81"/>
+  <path d="M0 746C132 654 260 685 345 628C429 571 510 618 581 699C640 766 727 769 900 662V1200H0Z" fill="url(#dots)" opacity=".7"/>
+  <path d="M416 1200C399 1082 435 1008 493 932C552 854 564 771 522 708C496 669 462 646 433 620C496 652 559 690 585 749C620 828 575 914 527 978C482 1038 462 1102 474 1200Z" fill="url(#river)" opacity=".9"/>
+  <g transform="translate(383 544)">
+    <path d="M-82 30H82L52 7H-52Z" fill="#efc75e"/>
+    <path d="M-64 31H64V83H-64Z" fill="#f4e5b0"/>
+    <path d="M-74 84H74L54 62H-54Z" fill="#dca83e"/>
+    <rect x="-47" y="36" width="94" height="42" fill="#fff5d2"/>
+    <rect x="-8" y="39" width="16" height="39" fill="#b86b39"/>
+    <path d="M-92 12H92L47-14H-47Z" fill="#f2c85a"/>
+    <path d="M0-38L11-14H-11Z" fill="#f6dc83"/>
+  </g>
+  <g fill="#e5bb4d">
+    <circle cx="115" cy="724" r="10"/><circle cx="148" cy="748" r="7"/><circle cx="182" cy="710" r="8"/>
+    <circle cx="227" cy="780" r="11"/><circle cx="265" cy="745" r="6"/><circle cx="300" cy="804" r="9"/>
+    <circle cx="670" cy="712" r="8"/><circle cx="712" cy="748" r="12"/><circle cx="754" cy="707" r="7"/>
+    <circle cx="805" cy="776" r="10"/><circle cx="842" cy="736" r="6"/>
+  </g>
+</svg>

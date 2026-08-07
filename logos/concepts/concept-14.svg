@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- 概念十四：仿小篆「云」· 无底板单色，纵长垂脚版 -->
+  <!-- 小篆字面为纵长方形，下部作垂脚，故拉高字身、曲笔下探 -->
+  <!-- 传统色：靛蓝 #16324f -->
+  <g id="icon">
+    <g id="glyph-yun" fill="none" stroke="#16324f" stroke-width="40"
+       stroke-linecap="round" stroke-linejoin="round">
+      <path id="heng-1" d="M132 118Q256 100 380 118"/>
+      <path id="heng-2" d="M164 200Q256 184 348 200"/>
+      <path id="huizhuan" d="M180 276c-10 92 80 142 152 100 50-30 35-88-15-72"/>
+    </g>
+  </g>
+</svg>

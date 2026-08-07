@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- 概念一：园区地块俯视 -->
+  <!-- 传统色：黛青 #1c3b52 / 月白 #e7eff2 / 石青 #38708c -->
+  <g id="icon">
+    <rect id="plate" width="512" height="512" rx="112" fill="#1c3b52"/>
+    <g id="plots">
+      <rect id="plot-main" x="96" y="96" width="140" height="320" rx="24" fill="#e7eff2"/>
+      <rect id="plot-a" x="276" y="96" width="140" height="140" rx="24" fill="#38708c"/>
+      <rect id="plot-b" x="276" y="276" width="140" height="140" rx="24" fill="#38708c"/>
+    </g>
+  </g>
+</svg>

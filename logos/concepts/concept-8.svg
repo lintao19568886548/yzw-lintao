@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- 概念八：篆意「园」字印。囗为直角围合，内含摹印篆写法的「元」 -->
+  <!-- 传统色：宣白 #f2ece0 / 朱砂 #9c3a2b（白底红字，如印蜕落纸） -->
+  <g id="icon">
+    <rect id="plate" x="56" y="56" width="400" height="400" rx="12" fill="#f2ece0"/>
+    <g id="enclosure">
+      <rect x="104" y="104" width="304" height="304" fill="#9c3a2b"/>
+      <rect x="152" y="152" width="208" height="208" fill="#f2ece0"/>
+    </g>
+    <g id="glyph-yuan" fill="#9c3a2b">
+      <rect id="stroke-1" x="204" y="186" width="104" height="32"/>
+      <rect id="stroke-2" x="176" y="238" width="160" height="32"/>
+      <rect id="stroke-pie" x="186" y="290" width="32" height="56"/>
+      <path id="stroke-yi" d="M292 290h32v34h30v22h-62z"/>
+    </g>
+  </g>
+</svg>

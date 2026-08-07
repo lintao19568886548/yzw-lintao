@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- 概念十六：仿小篆「云」· 宣白底朱砂字，细边栏，取印蜕落纸之意 -->
+  <!-- 传统色：宣白 #f2ece0 / 朱砂 #9c3a2b -->
+  <g id="icon">
+    <rect id="plate" x="48" y="48" width="416" height="416" rx="10" fill="#f2ece0"/>
+    <rect id="border" x="84" y="84" width="344" height="344" rx="6"
+          fill="none" stroke="#9c3a2b" stroke-width="13"/>
+    <g id="glyph-yun" transform="translate(256 254) scale(1.08) translate(-256 -270)"
+       fill="none" stroke="#9c3a2b" stroke-width="26"
+       stroke-linecap="round" stroke-linejoin="round">
+      <path id="heng-1" d="M148 140H364"/>
+      <path id="heng-2" d="M176 200H336"/>
+      <path id="huizhuan" d="M196 258c-18 106 44 176 120 138 46-23 44-82 2-100-30-13-58 6-54 36 3 21 24 29 38 16"/>
+    </g>
+  </g>
+</svg>

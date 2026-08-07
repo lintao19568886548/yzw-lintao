@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>云园慧控 Logo Preview — Concepts</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", Roboto, sans-serif;
+    padding: 2rem;
+    transition: background-color 0.3s, color 0.3s;
+  }
+  body.light { background: #f5f5f5; color: #333; }
+  body.dark { background: #1a1a1a; color: #eee; }
+  .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+  h1 { font-size: 1.5rem; font-weight: 600; }
+  h2 { font-size: 1.15rem; font-weight: 600; margin: 2.75rem 0 0.35rem; }
+  .note { font-size: 0.85rem; opacity: 0.65; margin-bottom: 1.25rem; }
+  .toggle {
+    padding: 0.5rem 1rem; border: 1px solid currentColor; border-radius: 6px;
+    background: transparent; color: inherit; cursor: pointer; font-size: 0.875rem;
+  }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; }
+  .card { border: 1px solid rgba(128,128,128,0.3); border-radius: 12px; overflow: hidden; }
+  .card-img { display: flex; align-items: center; justify-content: center; padding: 2rem; min-height: 240px; }
+  body.light .card-img { background: #fff; }
+  body.dark .card-img { background: #2a2a2a; }
+  .card-img img { max-width: 100%; max-height: 200px; }
+  .card-label { padding: 0.75rem 1rem; font-size: 0.875rem; font-weight: 500; border-top: 1px solid rgba(128,128,128,0.3); }
+  .card-label small { display: block; font-weight: 400; opacity: 0.65; margin-top: 0.2rem; }
+  body.light .card-label { background: #fafafa; }
+  body.dark .card-label { background: #222; }
+  .archived .card-img img { opacity: 0.5; }
+  .sizes { display: flex; gap: 2rem; flex-wrap: wrap; align-items: end; }
+  .sizes figure { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
+  .sizes .name { font-size: 0.8rem; font-weight: 500; }
+  .sizes .row { display: flex; gap: 1rem; align-items: end; }
+  .sizes .px { font-size: 0.75rem; opacity: 0.6; text-align: center; }
+</style>
+</head>
+<body class="light">
+  <div class="header">
+    <h1>云园慧控 Logo Preview — Concepts</h1>
+    <button class="toggle" onclick="document.body.classList.toggle('dark'); document.body.classList.toggle('light'); this.textContent = document.body.classList.contains('dark') ? '☀️ Light' : '🌙 Dark';">🌙 Dark</button>
+  </div>
+
+  <h2>第四轮 · 15 号 + 边角云纹</h2>
+  <div class="note">云纹取自用户提供的传统边角云纹参考图，经 potrace 矢量化后烘入坐标，形态忠于原图（此前几版自绘的均已废）。22 号为 favicon 专用稿。由 <code>logos/tools/gen_seal.py</code> 生成。</div>
+  <div class="grid" id="round4"></div>
+
+  <h2>Favicon Size Check — 第四轮</h2>
+  <div class="note">云纹在 32px 以下必然糊成锯齿边，故另出 22 号加粗稿专供小尺寸。</div>
+  <div class="sizes" id="sizes4"></div>
+
+  <h2>第三轮 · 仿小篆「云」</h2>
+  <div class="note">手绘仿玉箸篆／铁线篆：线宽恒定、圆起圆收、转折圆转。构形取二横在上、下作云气回转螺旋。<b>非篆书字库字形</b>，本机无篆体字体。</div>
+  <div class="grid" id="round3"></div>
+
+  <h2>Favicon Size Check — 第三轮</h2>
+  <div class="note">重点看 16px：篆书细笔在此尺寸会糊。</div>
+  <div class="sizes" id="sizes3"></div>
+
+  <h2>第二轮 · 大气方向</h2>
+  <div class="note">直角或极小圆角、轴对称、统一线宽节奏、沉稳传统颜料色。云走云雷纹几何路线，不用圆球。</div>
+  <div class="grid" id="round2"></div>
+
+  <h2>Favicon Size Check — 第二轮</h2>
+  <div class="note">纯图标必须扛得住 16px。此处为真实缩放，非示意。</div>
+  <div class="sizes" id="sizes2"></div>
+
+  <h2>第一轮 · 存档（偏 Q 版，已弃）</h2>
+  <div class="note">巨大圆角底板 + 圆球云 + 内部倒圆角，是可爱感的来源。留作对照。</div>
+  <div class="grid archived" id="round1"></div>
+
+<script>
+const ROUND4 = [
+  ['concept-25', '参考图云纹 · 镜像四角', '朱砂 / 宣白'],
+  ['concept-26', '参考图云纹 · 旋转四角', '朱砂 / 宣白'],
+  ['concept-22', 'favicon 专用稿（无云纹·加粗）', '朱砂 / 宣白'],
+  ['concept-24', '旧稿 · 自绘卷带云纹（已废）', '朱砂 / 宣白'],
+  ['concept-20', '旧稿 · 三角贴圆包（已废）',   '朱砂 / 宣白'],
+  ['concept-23', '旧稿 · 两瓣版（已废）',       '朱砂 / 宣白'],
+  ['concept-19', '旧稿 · 对角双（已废）',       '朱砂 / 宣白'],
+  ['concept-21', '旧稿 · 加印边（已废）',       '朱砂 / 宣白'],
+];
+const ROUND3 = [
+  ['concept-15', '小篆「云」· 朱砂阳文方印', '朱砂 / 宣白'],
+  ['concept-16', '小篆「云」· 印蜕落纸',     '宣白 / 朱砂'],
+  ['concept-17', '小篆「云」入囗 · 云园合文', '玄墨 / 古铜金'],
+  ['concept-18', '小篆「云」· 无底板单色',   '靛蓝'],
+];
+const ROUND2 = [
+  ['concept-6',  '云雷纹方印',   '朱砂 / 宣白'],
+  ['concept-7',  '门阙三重檐',   '玄墨 / 古铜金'],
+  ['concept-8',  '篆意「园」字印', '宣白 / 朱砂'],
+  ['concept-9',  '院落层叠',     '石青 / 月白'],
+  ['concept-10', '方中有云',     '靛蓝（无底板）'],
+];
+const ROUND1 = [
+  ['concept-1', '园区地块俯视', '黛青 / 月白 / 石青'],
+  ['concept-2', '云端管控',     '玄色 / 藤黄'],
+  ['concept-3', '「园」字印章', '朱砂 / 宣白'],
+  ['concept-4', '锯齿厂房',     '鸦青 / 缟色 / 朱砂'],
+  ['concept-5', '方圆交叠',     '石绿 / 粉青 / 松绿'],
+];
+
+const card = ([id, name, palette]) => `
+  <div class="card">
+    <div class="card-img"><img src="concepts/${id}.svg" alt="${id}"></div>
+    <div class="card-label">${id} · ${name}<small>${palette}</small></div>
+  </div>`;
+
+const sizeStrip = ([id, name]) => `
+  <figure>
+    <div class="name">${id} · ${name}</div>
+    <div class="row">
+      ${[64, 32, 16].map(px => `
+        <div>
+          <img src="concepts/${id}.svg" width="${px}" height="${px}">
+          <div class="px">${px}px</div>
+        </div>`).join('')}
+    </div>
+  </figure>`;
+
+document.getElementById('round4').innerHTML = ROUND4.map(card).join('');
+document.getElementById('sizes4').innerHTML = ROUND4.map(sizeStrip).join('');
+document.getElementById('round3').innerHTML = ROUND3.map(card).join('');
+document.getElementById('sizes3').innerHTML = ROUND3.map(sizeStrip).join('');
+document.getElementById('round2').innerHTML = ROUND2.map(card).join('');
+document.getElementById('round1').innerHTML = ROUND1.map(card).join('');
+document.getElementById('sizes2').innerHTML = ROUND2.map(sizeStrip).join('');
+</script>
+</body>
+</html>

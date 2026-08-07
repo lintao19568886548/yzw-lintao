@@ -1,0 +1,85 @@
+-- 在原 MySQL `magic` 业务库执行。每个结果集每行输出一条可直接聚合的 JSON。
+SELECT JSON_OBJECT(
+  'finance_id', f.finance_id,
+  'bill_name', f.bill_name,
+  'bill_category', f.bill_category,
+  'amount_cents', CAST(ROUND(f.amount * 100) AS SIGNED),
+  'transaction_type', f.transaction_type,
+  'transaction_time_micros', CAST(UNIX_TIMESTAMP(f.transaction_time) * 1000000 AS SIGNED),
+  'remark', f.remark,
+  'park_id', COALESCE(f.park_id, 0),
+  'status', f.status,
+  'is_deleted', JSON_EXTRACT(IF(f.is_deleted, 'true', 'false'), '$'),
+  'created_at_micros', IF(f.create_time IS NULL, NULL, CAST(UNIX_TIMESTAMP(f.create_time) * 1000000 AS SIGNED)),
+  'updated_at_micros', IF(f.update_time IS NULL, NULL, CAST(UNIX_TIMESTAMP(f.update_time) * 1000000 AS SIGNED))
+) FROM finance f ORDER BY f.finance_id;
+
+SELECT JSON_OBJECT(
+  'bill_id', bill_id,
+  'project_name', project_name,
+  'tenant_name', tenant_name,
+  'public_bank_account', public_bank_account,
+  'private_bank_account', private_bank_account,
+  'ele_fee_cents', CAST(ROUND(COALESCE(ele_fee, 0) * 100) AS SIGNED),
+  'water_fee_cents', CAST(ROUND(COALESCE(water_fee, 0) * 100) AS SIGNED),
+  'receive_fee_cents', CAST(ROUND(COALESCE(receive_fee, 0) * 100) AS SIGNED),
+  'factory_rent_cents', CAST(ROUND(COALESCE(factory_rent, 0) * 100) AS SIGNED),
+  'management_fee_cents', CAST(ROUND(COALESCE(management_fee, 0) * 100) AS SIGNED),
+  'invoice_tax_cents', CAST(ROUND(COALESCE(invoice_tax, 0) * 100) AS SIGNED),
+  'total_fee_cents', CAST(ROUND(COALESCE(total_fee, 0) * 100) AS SIGNED),
+  'service_fee_cents', CAST(ROUND(COALESCE(service_fee, 0) * 100) AS SIGNED),
+  'garbage_fee_cents', CAST(ROUND(COALESCE(garbage_fee, 0) * 100) AS SIGNED),
+  'receipt_amount_cents', CAST(ROUND(COALESCE(receive_amount, 0) * 100) AS SIGNED),
+  'penalty_fee_cents', IF(penalty_fee IS NULL, NULL, CAST(ROUND(penalty_fee * 100) AS SIGNED)),
+  'service_rate_basis_points', IF(service_rate IS NULL, NULL, CAST(ROUND(service_rate * 100) AS SIGNED)),
+  'garbage_rate_basis_points', IF(garbage_rate IS NULL, NULL, CAST(ROUND(garbage_rate * 100) AS SIGNED)),
+  'penalty_rate_basis_points', IF(penalty_rate IS NULL, NULL, CAST(ROUND(penalty_rate * 100) AS SIGNED)),
+  'extra_ele_rate_basis_points', IF(extra_ele_rate IS NULL, NULL, CAST(ROUND(extra_ele_rate * 100) AS SIGNED)),
+  'penalty_item', penalty_item,
+  'extra_ele_item', extra_ele_item,
+  'ele_item', ele_item,
+  'water_item', water_item,
+  'extra_project_item', project_amount_item,
+  'tax_rate_json', tax_rate,
+  'remark', remark,
+  'receipt_time_micros', IF(receipt_time IS NULL, NULL, CAST(UNIX_TIMESTAMP(receipt_time) * 1000000 AS SIGNED)),
+  'finance_id', finance_id,
+  'tenant_id', COALESCE(tenant_id, 0),
+  'park_id', COALESCE(park_id, 0),
+  'created_at_micros', IF(create_time IS NULL, NULL, CAST(UNIX_TIMESTAMP(create_time) * 1000000 AS SIGNED)),
+  'updated_at_micros', IF(update_time IS NULL, NULL, CAST(UNIX_TIMESTAMP(update_time) * 1000000 AS SIGNED))
+) FROM amount_bill ORDER BY bill_id;
+
+SELECT JSON_OBJECT(
+  'detail_id', ele_id,
+  'bill_id', bill_id,
+  'meter_name', meter_name,
+  'previous_reading_centi', CAST(ROUND(COALESCE(previous_reading, 0) * 100) AS SIGNED),
+  'current_reading_centi', CAST(ROUND(COALESCE(current_reading, 0) * 100) AS SIGNED),
+  'monthly_usage_centi', CAST(ROUND(COALESCE(monthly_usage, 0) * 100) AS SIGNED),
+  'multiplier_centi', CAST(ROUND(COALESCE(multiplier, 0) * 100) AS SIGNED),
+  'total_usage_centi', CAST(ROUND(COALESCE(total_usage, 0) * 100) AS SIGNED),
+  'unit_price_scaled', CAST(ROUND(COALESCE(unit_price, 0) * 100000000) AS SIGNED),
+  'amount_cents', CAST(ROUND(COALESCE(amount, 0) * 100) AS SIGNED),
+  'remark', remark,
+  'receipt_time_micros', IF(receipt_time IS NULL, NULL, CAST(UNIX_TIMESTAMP(receipt_time) * 1000000 AS SIGNED)),
+  'created_at_micros', IF(create_time IS NULL, NULL, CAST(UNIX_TIMESTAMP(create_time) * 1000000 AS SIGNED)),
+  'updated_at_micros', IF(update_time IS NULL, NULL, CAST(UNIX_TIMESTAMP(update_time) * 1000000 AS SIGNED))
+) FROM ele_bill ORDER BY ele_id;
+
+SELECT JSON_OBJECT(
+  'detail_id', water_id,
+  'bill_id', bill_id,
+  'meter_name', meter_name,
+  'previous_reading_centi', CAST(ROUND(COALESCE(previous_reading, 0) * 100) AS SIGNED),
+  'current_reading_centi', CAST(ROUND(COALESCE(current_reading, 0) * 100) AS SIGNED),
+  'monthly_usage_centi', CAST(ROUND(COALESCE(monthly_usage, 0) * 100) AS SIGNED),
+  'multiplier_centi', CAST(ROUND(COALESCE(multiplier, 0) * 100) AS SIGNED),
+  'total_usage_centi', CAST(ROUND(COALESCE(total_usage, 0) * 100) AS SIGNED),
+  'unit_price_scaled', CAST(ROUND(COALESCE(unit_price, 0) * 100000000) AS SIGNED),
+  'amount_cents', CAST(ROUND(COALESCE(amount, 0) * 100) AS SIGNED),
+  'remark', remark,
+  'receipt_time_micros', IF(receipt_time IS NULL, NULL, CAST(UNIX_TIMESTAMP(receipt_time) * 1000000 AS SIGNED)),
+  'created_at_micros', IF(create_time IS NULL, NULL, CAST(UNIX_TIMESTAMP(create_time) * 1000000 AS SIGNED)),
+  'updated_at_micros', IF(update_time IS NULL, NULL, CAST(UNIX_TIMESTAMP(update_time) * 1000000 AS SIGNED))
+) FROM water_bill ORDER BY water_id;

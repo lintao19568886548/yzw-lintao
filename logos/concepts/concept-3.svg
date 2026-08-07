@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- 概念三：「园」字围合变形，取阳文印章意 -->
+  <!-- 传统色：朱砂 #b23a2c / 宣白 #f4efe4 -->
+  <g id="icon">
+    <rect id="plate" width="512" height="512" rx="112" fill="#b23a2c"/>
+    <g id="enclosure">
+      <rect x="96" y="96" width="320" height="320" rx="76" fill="#f4efe4"/>
+      <rect x="156" y="156" width="200" height="200" rx="40" fill="#b23a2c"/>
+    </g>
+    <g id="towers" fill="#f4efe4">
+      <rect x="184" y="246" width="56" height="76" rx="14"/>
+      <rect x="272" y="200" width="56" height="122" rx="14"/>
+    </g>
+  </g>
+</svg>

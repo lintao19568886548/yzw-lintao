@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- 云园慧控 · 小尺寸变体，用于 favicon 与应用图标。 -->
+  <!-- 与 assets/logo.svg 的差别：印面满幅（去掉四周留白）、去掉四角云纹、 -->
+  <!-- 篆字放大加粗。原图在 16px 下云纹会糊成噪点、方形轮廓被吃掉，整体 -->
+  <!-- 读成一团圆斑；小尺寸必须减笔画，这是图形设计惯例而非偷懒。 -->
+  <!-- 改动请与 logo.svg 保持同一套配色：朱砂 #9c3a2b / 宣白 #f2ece0 -->
+  <rect x="0" y="0" width="512" height="512" rx="72" fill="#9c3a2b"/>
+  <g transform="translate(256 256) scale(1.06) translate(-256 -270)"
+     fill="none" stroke="#f2ece0" stroke-width="30"
+     stroke-linecap="round" stroke-linejoin="round">
+    <path d="M148 140H364"/>
+    <path d="M176 200H336"/>
+    <path d="M196 258c-18 106 44 176 120 138 46-23 44-82 2-100-30-13-58 6-54 36 3 21 24 29 38 16"/>
+  </g>
+</svg>

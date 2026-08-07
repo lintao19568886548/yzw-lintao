@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>云园慧控服务端架构说明书</title>
+<style>
+  :root {
+    --red: #E30613;
+    --black: #111;
+    --grey: #6b6b6b;
+    --hairline: #d9d9d9;
+    --bg-code: #f4f4f2;
+    --max: 1100px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+  /* 任何意外溢出都不允许把页面撑出横向滚动（clip 不产生滚动容器，不影响 sticky 导航） */
+  html, body { overflow-x: clip; }
+  body {
+    font-family: "Helvetica Neue", Helvetica, Arial, "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+    color: var(--black);
+    background: #fff;
+    line-height: 1.8;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .container { max-width: var(--max); margin: 0 auto; padding: 0 24px; }
+
+  /* ── 顶部导航 ─────────────────────────── */
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(255,255,255,.94);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--black);
+  }
+  .nav-inner {
+    max-width: var(--max); margin: 0 auto; padding: 0 24px;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 52px;
+  }
+  .nav-brand { font-weight: 700; font-size: .82rem; letter-spacing: .12em; }
+  .nav-brand em { font-style: normal; color: var(--red); }
+  .nav-links { display: flex; gap: 20px; }
+  .nav-links a {
+    text-decoration: none; color: var(--black);
+    font-size: .78rem; font-weight: 700; letter-spacing: .08em;
+  }
+  .nav-links a span { color: var(--red); margin-right: 3px; }
+  .nav-links a:hover { color: var(--red); }
+
+  /* ── 页眉 ────────────────────────────── */
+  header { padding: 72px 0 0; }
+  .kicker {
+    font-size: .74rem; font-weight: 700; letter-spacing: .28em;
+    text-transform: uppercase; color: var(--grey);
+  }
+  h1 {
+    font-size: clamp(2.2rem, 6.5vw, 4.6rem);
+    font-weight: 800; letter-spacing: -.02em; line-height: 1.12;
+    margin: 18px 0 30px;
+  }
+  .redbar { height: 10px; background: var(--red); width: 100%; }
+  .meta-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    border-bottom: 1px solid var(--black);
+  }
+  .meta-grid > div { padding: 16px 16px 16px 0; border-top: 1px solid var(--hairline); }
+  .meta-grid dt {
+    font-size: .7rem; font-weight: 700; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--grey); margin-bottom: 4px;
+  }
+  .meta-grid dd { font-size: .95rem; font-weight: 600; }
+  .abstract { padding: 34px 0 10px; max-width: 78ch; }
+  .abstract p { margin-bottom: 14px; color: #222; }
+  .abstract strong { color: var(--black); }
+
+  /* ── 目录 ────────────────────────────── */
+  .toc { margin: 40px 0 0; border-top: 2px solid var(--black); }
+  .toc-title {
+    font-size: .74rem; font-weight: 700; letter-spacing: .28em;
+    text-transform: uppercase; padding: 14px 0; color: var(--grey);
+  }
+  .toc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--hairline); border: 1px solid var(--hairline); }
+  .toc-cell { background: #fff; padding: 22px 18px 26px; text-decoration: none; color: var(--black); transition: background .15s; }
+  .toc-cell:hover { background: #fafafa; }
+  .toc-num { font-size: 2.4rem; font-weight: 800; color: var(--red); line-height: 1; }
+  .toc-name { font-weight: 700; font-size: 1.02rem; margin: 10px 0 8px; }
+  .toc-desc { font-size: .8rem; color: var(--grey); line-height: 1.6; }
+
+  /* ── 章节 ────────────────────────────── */
+  .chapter { padding-top: 96px; }
+  .chapter-head { border-top: 4px solid var(--black); position: relative; padding-top: 10px; margin-bottom: 40px; }
+  .chapter-label {
+    display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap;
+  }
+  .chapter-num {
+    font-size: clamp(4rem, 12vw, 7.5rem); font-weight: 800; line-height: .95;
+    color: var(--red); letter-spacing: -.03em;
+  }
+  .chapter-title { font-size: clamp(1.5rem, 3.4vw, 2.4rem); font-weight: 800; letter-spacing: -.01em; }
+  section { padding-top: 44px; scroll-margin-top: 76px; }
+  .sec-head { display: flex; align-items: baseline; gap: 14px; border-bottom: 1px solid var(--black); padding-bottom: 8px; margin-bottom: 20px; }
+  .sec-no { font-weight: 800; color: var(--red); font-size: 1.05rem; white-space: nowrap; }
+  h3 { font-size: 1.28rem; font-weight: 800; letter-spacing: -.01em; }
+  h4 { font-size: 1rem; font-weight: 700; margin: 26px 0 10px; }
+  h4 .tag { color: var(--red); }
+
+  p { margin-bottom: 14px; max-width: 82ch; }
+  section > p:first-of-type { margin-top: 0; }
+  strong { font-weight: 700; }
+  em { font-style: normal; background: linear-gradient(transparent 68%, rgba(227,6,19,.16) 0); }
+  a.inline { color: var(--black); text-decoration: underline; text-decoration-color: var(--red); text-underline-offset: 3px; }
+
+  ul, ol { margin: 0 0 16px 1.35em; max-width: 80ch; }
+  li { margin-bottom: 8px; }
+  li::marker { font-weight: 700; color: var(--red); }
+
+  /* 定义条目（术语 → 说明） */
+  .def { border-left: 4px solid var(--black); padding: 4px 0 4px 16px; margin: 18px 0; max-width: 82ch; }
+  .def .term { font-weight: 800; }
+
+  /* 引言/断言块 */
+  blockquote {
+    border-left: 6px solid var(--red);
+    padding: 16px 20px; margin: 22px 0;
+    background: #fafafa; max-width: 78ch;
+    font-weight: 600;
+  }
+  .axiom {
+    margin: 30px 0; padding: 26px 0; border-top: 2px solid var(--black); border-bottom: 2px solid var(--black);
+    font-size: clamp(1.05rem, 2.2vw, 1.4rem); font-weight: 800; letter-spacing: .01em; max-width: 100%;
+  }
+  .axiom span { color: var(--red); }
+
+  /* 表格 */
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 20px 0 26px; }
+  table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: .9rem; }
+  thead th {
+    text-align: left; font-size: .72rem; letter-spacing: .14em; text-transform: uppercase;
+    border-top: 2px solid var(--black); border-bottom: 1px solid var(--black);
+    padding: 10px 14px 10px 0; font-weight: 700;
+  }
+  tbody td { border-bottom: 1px solid var(--hairline); padding: 10px 14px 10px 0; vertical-align: top; line-height: 1.65; }
+  tbody tr:last-child td { border-bottom: 1px solid var(--black); }
+  td:first-child, th:first-child { font-weight: 700; }
+  .ok { color: #0a7a2f; font-weight: 700; }
+  .no { color: var(--red); font-weight: 700; }
+
+  /* 代码 */
+  code {
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, "Courier New", monospace;
+    font-size: .84em; background: var(--bg-code); padding: .12em .38em; border-radius: 2px;
+  }
+  pre {
+    background: var(--bg-code); border-top: 2px solid var(--black);
+    padding: 18px 20px; overflow-x: auto; margin: 20px 0 26px;
+    line-height: 1.6;
+  }
+  pre code { background: none; padding: 0; font-size: .82rem; display: block; white-space: pre; }
+  .code-cap {
+    font-size: .72rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--grey); margin: 22px 0 -14px;
+  }
+
+  /* 步骤列表（第四章） */
+  .steps { counter-reset: step; list-style: none; margin: 24px 0; padding: 0; max-width: 84ch; }
+  .steps li {
+    counter-increment: step; position: relative;
+    padding: 16px 0 16px 64px; border-top: 1px solid var(--hairline); margin: 0;
+  }
+  .steps li:last-child { border-bottom: 1px solid var(--black); }
+  .steps li::before {
+    content: counter(step, decimal-leading-zero);
+    position: absolute; left: 0; top: 12px;
+    font-size: 1.5rem; font-weight: 800; color: var(--red);
+  }
+  .steps b { display: block; margin-bottom: 4px; }
+
+  /* 检查清单 */
+  .checklist { list-style: none; margin: 20px 0; padding: 0; max-width: 84ch; }
+  .checklist li { padding: 10px 0 10px 36px; position: relative; border-bottom: 1px solid var(--hairline); margin: 0; }
+  .checklist li::before {
+    content: ""; position: absolute; left: 2px; top: 16px;
+    width: 14px; height: 14px; border: 2px solid var(--black);
+  }
+
+  footer { margin-top: 110px; border-top: 4px solid var(--black); padding: 26px 0 60px; }
+  .foot-grid { display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; font-size: .78rem; color: var(--grey); }
+  .foot-grid b { color: var(--black); }
+
+  /* ── 响应式 ──────────────────────────── */
+  @media (max-width: 860px) {
+    .toc-grid { grid-template-columns: repeat(2, 1fr); }
+    .meta-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 700px) {
+    /* 手机上几乎所有表格都会超宽：给出滑动提示，并压缩字号 */
+    .table-wrap::before {
+      content: "← 表格可左右滑动 →";
+      display: block;
+      font-size: .68rem; font-weight: 700; letter-spacing: .12em;
+      color: var(--grey); padding-bottom: 6px;
+    }
+    table { font-size: .82rem; min-width: 560px; }
+    thead th, tbody td { padding-right: 10px; }
+  }
+  @media (max-width: 560px) {
+    body { font-size: 15px; }
+    .container { padding: 0 16px; }
+    .nav-inner { padding: 0 16px; }
+    header { padding-top: 44px; }
+    h1 { margin: 14px 0 22px; }
+    .abstract { padding: 26px 0 8px; }
+    .toc-grid { grid-template-columns: 1fr; }
+    .toc-cell { padding: 16px 14px 18px; }
+    .toc-num { font-size: 1.9rem; }
+    .nav-links { gap: 12px; }
+    .nav-links a i { display: none; }
+    .chapter { padding-top: 64px; }
+    .chapter-head { margin-bottom: 28px; }
+    section { padding-top: 34px; }
+    .steps li { padding-left: 46px; }
+    .steps li::before { font-size: 1.2rem; }
+    pre { padding: 14px; }
+    pre code { font-size: .74rem; }
+    blockquote { padding: 12px 14px; }
+    .meta-grid dd { font-size: .88rem; }
+    .axiom { padding: 20px 0; }
+  }
+  @media (max-width: 380px) {
+    .nav-brand { font-size: .74rem; letter-spacing: .06em; }
+    .nav-links { gap: 9px; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <div class="nav-brand">云园慧控<em>·</em>架构说明书</div>
+    <div class="nav-links">
+      <a href="#ch1"><span>01</span><i>平台概念</i></a>
+      <a href="#ch2"><span>02</span><i>总体架构</i></a>
+      <a href="#ch3"><span>03</span><i>编程规范</i></a>
+      <a href="#ch4"><span>04</span><i>开发流程</i></a>
+    </div>
+  </div>
+</nav>
+
+<header>
+  <div class="container">
+    <div class="kicker">服务端技术文档 — SpacetimeDB 2.6.1 / Rust 2024</div>
+    <h1>云园慧控<br>服务端架构说明书</h1>
+  </div>
+  <div class="redbar"></div>
+  <div class="container">
+    <dl class="meta-grid">
+      <div><dt>作者</dt><dd>周茂森</dd></div>
+      <div><dt>面向对象</dt><dd>协作开发人员</dd></div>
+      <div><dt>平台版本</dt><dd>SpacetimeDB 2.6.1</dd></div>
+      <div><dt>修订</dt><dd>2026-08</dd></div>
+    </dl>
+    <div class="abstract">
+      <p><strong>面向对象</strong>：参与本项目服务端开发的协作人员。本文不假设读者具备 SpacetimeDB 使用经验，所有平台专有名词均在首次出现处给出定义；但假设读者具备 Rust 语言基础。</p>
+      <p><strong>文档分工</strong>：本文回答平台概念、架构设计原理、编程规范与开发流程；README.md 记载系统规模、目录结构、构建与部署命令、生产环境信息；AGENTS.md 为 SpacetimeDB CLI 与 Rust SDK 的 API 速查手册；系统设计专题文档（如权限模型设计 docs/权限模型设计.md）统一放在仓库根目录 docs/。</p>
+      <p><strong>全文结构</strong>：第一章介绍 SpacetimeDB 平台的基本概念；第二章说明本项目的总体架构及其设计依据；第三章规定编码规范；第四章规定开发流程。第一章为后续各章的前置知识，建议按顺序阅读。</p>
+    </div>
+
+    <div class="toc">
+      <div class="toc-title">目录 Contents</div>
+      <div class="toc-grid">
+        <a class="toc-cell" href="#ch1">
+          <div class="toc-num">01</div>
+          <div class="toc-name">SpacetimeDB 平台概念</div>
+          <div class="toc-desc">数据库即应用服务器 · 术语总表 · Table / Reducer / View / Procedure · Identity · 订阅 · 事务 · 确定性 · Schema 演进</div>
+        </a>
+        <a class="toc-cell" href="#ch2">
+          <div class="toc-num">02</div>
+          <div class="toc-name">总体架构</div>
+          <div class="toc-desc">函数式核心与命令式外壳 · CQRS · 限界上下文 · 共享内核 · 数据建模通则 · 聚合 · 领域事件 · 类型驱动设计的边界 · 外部集成与网关</div>
+        </a>
+        <a class="toc-cell" href="#ch3">
+          <div class="toc-num">03</div>
+          <div class="toc-name">编程规范</div>
+          <div class="toc-desc">纯函数与智能构造器 · 错误处理 · 不可变更新 · 迭代器管道 · 穷尽匹配 · 测试规范 · 文档规范 · 纯函数标记宏</div>
+        </a>
+        <a class="toc-cell" href="#ch4">
+          <div class="toc-num">04</div>
+          <div class="toc-name">开发流程</div>
+          <div class="toc-desc">新增业务对象的八个标准步骤 · 提交前检查清单 · 发布安全评估</div>
+        </a>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+
+<!-- ═══════════════ 第一章 ═══════════════ -->
+<div class="chapter" id="ch1">
+  <div class="chapter-head">
+    <div class="chapter-label">
+      <div class="chapter-num">01</div>
+      <div class="chapter-title">SpacetimeDB 平台概念</div>
+    </div>
+  </div>
+
+  <section id="s1-1">
+    <div class="sec-head"><span class="sec-no">1.1</span><h3>概述：数据库即应用服务器</h3></div>
+    <p>传统 Web 应用采用三层结构：客户端、应用服务器（承载业务逻辑）、数据库（承载数据）。SpacetimeDB 的核心目的是<strong>将「应用服务器」与「数据库」两层合并为一层，从而消除二者之间的网络往返与一致性同步问题</strong>：业务逻辑以 WebAssembly（WASM）模块的形式部署在数据库内部执行，客户端直接连接数据库。官方对其定位的表述是：一个功能完整的关系型数据库系统，允许将应用逻辑直接运行于数据库内部，不再需要单独部署 Web 服务器或游戏服务器；模块可用 Rust、C#、TypeScript、C++ 四种语言编写（2.0 版起，后两者为新增），鉴权等服务端逻辑仍按传统服务器的方式编写。</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>对比项</th><th>传统三层结构</th><th>SpacetimeDB</th></tr></thead>
+      <tbody>
+        <tr><td>业务逻辑位置</td><td>独立的应用服务器进程</td><td>数据库内部的 WASM 模块</td></tr>
+        <tr><td>客户端与数据的通信</td><td>HTTP 请求 → 应用服务器 → SQL → 数据库</td><td>WebSocket 直连数据库</td></tr>
+        <tr><td>数据读取方式</td><td>请求-响应（轮询获取更新）</td><td>订阅-推送（服务端主动推送变更）</td></tr>
+        <tr><td>逻辑与数据的事务边界</td><td>需应用层自行管理（ORM、事务注解等）</td><td>天然一致：逻辑在数据库事务内执行</td></tr>
+        <tr><td>部署单元</td><td>应用程序 + 数据库两套设施</td><td>单个 WASM 模块</td></tr>
+      </tbody>
+    </table></div>
+
+    <h4><span class="tag">■</span> 被取代的技术栈</h4>
+    <p>以传统架构的组成部分逐层对照，SpacetimeDB 所取代的对象包括：</p>
+    <ol>
+      <li><strong>应用服务器层</strong>：Node、Django、Rails、Spring 等承载业务逻辑的独立进程，由「运行在数据库内部的 WASM 模块」取代。</li>
+      <li><strong>ORM 层与连接池</strong>：逻辑与数据处于同一进程，不再存在跨进程的序列化与反序列化，此二者随之消失。</li>
+      <li><strong>缓存层</strong>：传统架构中为降低数据库压力而引入的 Redis 等缓存设施，由「客户端本地订阅缓存 + 服务端增量推送」取代（机制见 §1.8）。</li>
+      <li><strong>事件总线与消息队列</strong>：用于「数据变更后通知相关方」的发布-订阅系统（Kafka 等），由平台原生的订阅（Subscription）机制取代，无需自行搭建设施实现最终一致性同步。</li>
+      <li><strong>部署运维设施</strong>：官方将其概括为免除微服务、容器、Kubernetes、Docker、虚拟机及 DevOps 流程等一整套运维基础设施——部署单元只有一个 WASM 模块。</li>
+      <li><strong>手写的实时同步代码</strong>：这是该平台最初的核心动机（见下段）。</li>
+    </ol>
+
+    <h4><span class="tag">■</span> 设计渊源</h4>
+    <p>SpacetimeDB 由 Clockwork Labs 开发，脱胎于其自研 MMORPG《BitCraft》的工程实践：游戏后端过去需要手工编写权限校验、物理逻辑、状态同步等「有状态的事务性云函数」，并自行维护 WebSocket 连接实现实时数据推送。SpacetimeDB 将这些需求整合为两个原语——归约器（Reducer，§1.4）与订阅查询（§1.8）。官方 FAQ 亦将其与 Mirror、Photon 等传统游戏联网库对比：后者仅解决「客户端与服务端之间如何传递消息」，服务端逻辑、状态管理与持久化仍需自行编写与部署；SpacetimeDB 取代的是整个服务端。</p>
+
+    <h4><span class="tag">■</span> 许可与选型风险</h4>
+    <p>SpacetimeDB 以 Business Source License 1.1 发布（约定若干年后转为附带链接例外条款的 AGPL v3），并非完全开源许可，代码治理集中于 Clockwork Labs 一家公司——采用该平台须将此项平台锁定风险纳入考量。目前唯一公开的大规模生产案例是 Clockwork Labs 自营的《BitCraft Online》，属高频状态同步的游戏场景，与本项目的管理后台场景差异较大，其验证价值应审慎评估。官方宣称的性能数据（部分基准较传统数据库快百倍至千倍）出自厂商自测，无第三方基准佐证，引用时应保持保留态度。</p>
+
+    <h4><span class="tag">■</span> 与 BaaS 平台的区别</h4>
+    <p>Firebase、Supabase 等后端即服务（Backend as a Service）平台本质上仍是「数据库 + 一层薄 API」，复杂业务逻辑须编写于云函数或边缘函数中，受冷启动与执行时长限制约束；SpacetimeDB 则将整个应用（包括复杂业务逻辑）以真正的编程语言写成单个模块，直接运行于数据库进程内，不存在冷启动与执行时长限制。</p>
+    <p>概括而言：该平台最初为解决游戏行业「实时多人状态同步」这一高频难题而生，其后延伸为一项通用主张——<strong>以单个数据库进程，取代「应用服务器 + ORM + 缓存 + 消息总线 + 部署运维」的整套传统技术栈</strong>。</p>
+    <p>本项目是上述主张的直接实践：服务端即 <code>server/spacetimedb/</code> 目录下的单个 Rust crate（crate 名 <code>parkwise_server</code>），编译产物为 <code>parkwise_server.wasm</code>，通过 <code>spacetime publish</code> 命令部署至数据库实例。系统中不存在 HTTP 路由层、ORM 层、连接池与缓存层。</p>
+    <p>客户端与服务端的全部交互仅有三种形式，分别对应后文将介绍的三类接口：</p>
+    <ol>
+      <li><strong>订阅 View</strong>——读取数据；</li>
+      <li><strong>调用 Reducer</strong>——写入数据；</li>
+      <li><strong>调用 Procedure</strong>——执行分页查询或外部输入输出操作。</li>
+    </ol>
+  </section>
+
+  <section id="s1-2">
+    <div class="sec-head"><span class="sec-no">1.2</span><h3>术语总表</h3></div>
+    <p>下表汇总本文使用的平台术语。各术语的详细说明见后续小节。</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>术语</th><th>英文</th><th>定义</th></tr></thead>
+      <tbody>
+        <tr><td>模块</td><td>Module</td><td>部署在数据库内部的 WASM 程序，包含全部业务逻辑与数据定义</td></tr>
+        <tr><td>数据表</td><td>Table</td><td>持久化数据的存储结构，由 Rust 结构体声明（§1.3）</td></tr>
+        <tr><td>归约器</td><td>Reducer</td><td>在数据库内部以事务方式执行的状态变更函数，系统唯一的写入入口（§1.4）</td></tr>
+        <tr><td>视图</td><td>View</td><td>依据调用者身份实时计算结果的只读函数，系统唯一的订阅读取面（§1.5）</td></tr>
+        <tr><td>过程</td><td>Procedure</td><td>以请求-响应方式调用、允许执行外部网络操作的函数（§1.6）</td></tr>
+        <tr><td>身份</td><td>Identity</td><td>用户的全局唯一标识，由连接令牌确定，服务端经 <code>ctx.sender()</code> 获取（§1.7）</td></tr>
+        <tr><td>订阅</td><td>Subscription</td><td>客户端向服务端注册查询、持续接收结果集变更的机制（§1.8）</td></tr>
+        <tr><td>归约器上下文</td><td>ReducerContext</td><td>Reducer 执行时可访问的环境对象，提供数据库句柄、调用者身份、事务时间戳等（§1.9）</td></tr>
+        <tr><td>客户端绑定</td><td>Client Bindings</td><td>由 CLI 依据模块定义自动生成的类型安全客户端代码（§1.11）</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section id="s1-3">
+    <div class="sec-head"><span class="sec-no">1.3</span><h3>Table（数据表）</h3></div>
+    <div class="def"><span class="term">定义</span>：Table 是 SpacetimeDB 中持久化数据的存储结构，功能上对应关系数据库中的表。它以带有 <code>#[spacetimedb::table]</code> 属性宏的 Rust 结构体声明，结构体的每个字段对应表的一列。</div>
+    <div class="code-cap">声明示例 — tables/hr/employee/salary_finance.rs</div>
+    <pre><code>#[spacetimedb::table(
+    accessor = salary_finance,
+    index(accessor = salary_finance_by_salary, btree(columns = [salary_id]))
+)]
+pub struct SalaryFinance {
+    #[primary_key]
+    #[auto_inc]
+    pub id: u64,
+    pub customer_id: String,
+    pub salary_id: u64,
+    pub finance_id: u64,
+    pub created_at: Timestamp,
+    pub updated_at: Option&lt;Timestamp&gt;,
+}</code></pre>
+    <p>其中各要素的含义：</p>
+    <ul>
+      <li><code>accessor</code>：表的访问器名称。模块代码经 <code>ctx.db.salary_finance()</code> 形式访问该表；</li>
+      <li><code>index(...)</code>：B 树索引声明。声明后可使用 <code>ctx.db.salary_finance().salary_finance_by_salary().filter(值)</code> 进行索引查找；</li>
+      <li><code>#[primary_key]</code>：主键约束；<code>#[auto_inc]</code>：自增列，插入时以 0 为占位值，由数据库分配实际值；</li>
+      <li>列类型支持整数、布尔、字符串、<code>Timestamp</code>、<code>Identity</code>、<code>Option&lt;T&gt;</code>、<code>Vec&lt;T&gt;</code> 等（完整列表见 AGENTS.md）。</li>
+    </ul>
+    <p><strong>可见性</strong>：Table 分为公开（<code>public</code>）与私有（默认）两种。公开表允许任何已连接客户端订阅其全部行；私有表仅模块内部代码可以访问，客户端无法以任何方式直接读取。</p>
+    <p><strong>本项目的约束</strong>：全部 119 张表均为私有表。客户端读取数据的唯一途径是订阅 View（§1.5）。该决策的架构意义见 §2.3。</p>
+  </section>
+
+  <section id="s1-4">
+    <div class="sec-head"><span class="sec-no">1.4</span><h3>Reducer（归约器）</h3></div>
+    <div class="def"><span class="term">定义</span>：Reducer 是在数据库内部以事务方式执行的函数，是修改数据库状态的唯一入口。客户端不能直接写表，亦不能执行 SQL 写语句；一切数据变更——新增、修改、删除、审核、状态流转、批量导入——都必须通过调用某个 Reducer 完成。</div>
+    <p><strong>名称由来</strong>：「Reducer」一词源于函数式编程中的归约（reduce / fold）操作——即「以当前状态与一项输入为参数、计算出下一个状态」的函数（前端领域的 Redux 框架对该词的使用与此同源）。SpacetimeDB 沿用此命名，因为每个 Reducer 的本质正是：<strong>以当前数据库状态与调用参数为输入，产出下一个数据库状态</strong>。</p>
+    <div class="code-cap">声明示例 — reducers/hr/employee/salary.rs</div>
+    <pre><code>#[spacetimedb::reducer]
+pub fn create_salary(ctx: &amp;ReducerContext, input: SalaryInput) -&gt; Result&lt;(), String&gt; {
+    AdminContext::require(ctx)?;
+    let customer_id = current_customer_id(ctx).ok_or("当前用户未选择租户")?;
+    let row = validated_salary(ctx, 0, customer_id, input)?;
+    let row = ctx.db.employee_salary().insert(row);
+    sync_salary_finance(ctx, &amp;row);
+    Ok(())
+}</code></pre>
+    <p>Reducer 具有四项关键性质：</p>
+    <ol>
+      <li><strong>事务性</strong>：一次 Reducer 调用构成一个数据库事务。函数正常返回则调用内的全部表操作原子提交；返回 <code>Err</code> 或发生 panic 则全部回滚。跨多张表的写入天然具备原子性（详见 §1.10）。</li>
+      <li><strong>确定性</strong>：Reducer 内部不得访问系统时钟、随机源、文件系统与网络。时间与随机数必须取自上下文对象（详见 §1.9 与 §1.12）。</li>
+      <li><strong>不向调用方返回数据</strong>：Reducer 的返回类型为 <code>Result&lt;(), String&gt;</code>（或无返回值）。调用方仅能得知执行成功或失败及失败原因，<strong>不能获得查询结果</strong>。数据始终经由订阅送达客户端：写入提交后，受影响的订阅自动收到变更推送。此性质并非限制，而是读写分离结构的组成部分（见 §2.3）。</li>
+      <li><strong>服务端鉴权</strong>：Reducer 在执行业务操作前自行校验调用者的身份与权限。客户端界面上隐藏某个按钮不构成任何安全保证。</li>
+    </ol>
+    <p><strong>生命周期 Reducer</strong>：除业务 Reducer 外，存在三个由平台在特定时机自动调用的钩子，本项目定义于 <code>src/lifecycle.rs</code>：<code>init</code>（模块首次发布或更新后执行，本项目在此完成管理员账号初始化）、<code>client_connected</code> 与 <code>client_disconnected</code>（客户端连接建立与断开时执行）。</p>
+    <p><strong>执行链路</strong>：一次完整的 Reducer 调用依次经过以下环节：</p>
+    <pre><code>客户端调用 Reducer
+  → SpacetimeDB 验证连接的 Identity Token
+  → Reducer 经 ctx.sender() 取得调用者身份
+  → 校验登录状态、角色、租户、园区权限（本项目：AdminContext::require 等门卫函数）
+  → 校验业务参数与状态流转（本项目：validated_* 纯函数）
+  → 在同一事务内写入一张或多张表
+  → 事务提交
+  → 平台向所有受影响的订阅推送增量变更</code></pre>
+  </section>
+
+  <section id="s1-5">
+    <div class="sec-head"><span class="sec-no">1.5</span><h3>View（视图）</h3></div>
+    <div class="def"><span class="term">定义</span>：View 是依据调用者身份实时计算返回结果的只读函数。它与关系数据库中「视图」概念的区别在于两点：其一，View 的计算过程隐式地以<strong>当前调用者的身份</strong>为参数，同一个 View 对不同用户返回不同结果；其二，View 可以被<strong>订阅</strong>——客户端注册订阅后，每当底层数据变更导致该 View 的结果集变化，变更将被自动推送（见 §1.8）。</div>
+    <div class="code-cap">声明示例 — views/finance/record.rs</div>
+    <pre><code>#[spacetimedb::view(accessor = my_finances, public)]
+pub fn my_finances(ctx: &amp;ViewContext) -&gt; Vec&lt;Finance&gt; {
+    let Some(scope) = current_read_scope(ctx) else {
+        return vec![];
+    };
+    let mut finances = ctx
+        .db
+        .finance()
+        .finance_by_customer()
+        .filter(scope.customer_id.as_str())
+        .filter(|f| !f.is_deleted &amp;&amp; scope.allows_park(f.park_id))
+        .collect::&lt;Vec&lt;_&gt;&gt;();
+    finances.sort_by_key(|f| f.finance_id);
+    finances
+}</code></pre>
+    <p><strong>关于 <code>public</code> 标记</strong>：View 声明中的 <code>public</code> 仅表示「允许客户端订阅该 View」，并不意味着数据公开——权限过滤在 View 函数体内部依据调用者身份执行。这与 Table 的 <code>public</code>（允许订阅整表、无任何过滤）含义截然不同。本项目 111 个 View 全部为 <code>public</code>，而 119 张 Table 全部为私有，二者配合构成读取面的权限边界（见 §2.3）。</p>
+    <p><strong>本项目的 View 编写规范</strong>：所有 View 遵循统一的四步骨架——<strong>获取权限范围 → 索引查找 → 谓词过滤 → 稳定排序</strong>，并统一以 <code>my_</code> 为名称前缀，以表明「结果集从当前调用者的视角计算」这一语义。具体规范见 §2.3。</p>
+  </section>
+
+  <section id="s1-6">
+    <div class="sec-head"><span class="sec-no">1.6</span><h3>Procedure（过程）</h3></div>
+    <div class="def"><span class="term">定义</span>：Procedure 是以请求-响应方式调用的服务端函数。与 Reducer 不同，Procedure 允许执行外部网络请求（如调用短信服务商接口），且可以向调用方返回结构化结果；相应地，它不以确定性事务的方式执行，不作为常规的数据写入入口。</div>
+    <p>Procedure 承担两类职责：</p>
+    <ol>
+      <li><strong>外部输入输出</strong>：Reducer 因确定性约束不能执行网络请求，此类操作（短信发送、验证码校验）由 Procedure 承担；</li>
+      <li><strong>大数据量的按需查询</strong>：账单、财务流水、工资等历史数据量大，若全部纳入常驻订阅，将显著增加登录耗时、客户端内存占用与缓存刷新开销。此类数据由 Procedure 分页查询，客户端按需请求、一次性接收结果。</li>
+    </ol>
+    <div class="table-wrap"><table>
+      <thead><tr><th>对比项</th><th>Reducer</th><th>Procedure</th></tr></thead>
+      <tbody>
+        <tr><td>调用语义</td><td>提交一个状态变更命令</td><td>发起一次请求并等待响应</td></tr>
+        <tr><td>事务性</td><td>严格：一次调用一个事务，失败全回滚</td><td>非事务性入口，不用于常规写入</td></tr>
+        <tr><td>确定性</td><td>强制要求</td><td>无要求，可执行网络请求</td></tr>
+        <tr><td>返回值</td><td>仅成功 / <code>Err(String)</code></td><td>结构化查询结果</td></tr>
+        <tr><td>数据到达客户端的方式</td><td>经订阅推送</td><td>直接作为响应返回</td></tr>
+        <tr><td>本项目的用途</td><td>全部业务写入（248 个）</td><td>3 个分页查询、4 个短信操作</td></tr>
+      </tbody>
+    </table></div>
+    <p>本项目全部 7 个 Procedure 的清单见 README 第四节。</p>
+    <p><strong>Procedure 的能力边界</strong>：它只能同步发起出站请求并等待响应，不能监听入站请求（webhook）、不能维持长连接、不能保存跨请求状态。此类外部集成需求（支付回调、物联网设备接入等）的承载方式见 §2.10。</p>
+  </section>
+
+  <section id="s1-7">
+    <div class="sec-head"><span class="sec-no">1.7</span><h3>Identity（身份）与连接模型</h3></div>
+    <div class="def"><span class="term">定义</span>：Identity 是用户的全局唯一标识符，在连接建立时由连接携带的 Identity Token 确定。服务端代码在任何 View、Reducer、Procedure 中均可通过 <code>ctx.sender()</code> 获取当前调用者的 Identity。</div>
+    <p>本项目的身份解析链条如下：</p>
+    <pre><code>Identity Token（连接携带）
+  → ctx.sender()（服务端获取 Identity）
+  → 用户会话表 → 当前用户 → 当前租户（customer）
+  → 角色、权限码、园区授权
+  → Principal（调用者是谁）与 ReadScope（调用者能读取什么）</code></pre>
+    <blockquote><strong>安全规则</strong>：<code>ctx.sender()</code> 是服务端唯一信任的身份来源。客户端作为参数传入的任何标识符——用户 ID、角色 ID、园区 ID——一律视为普通数据而非身份凭据，不得作为授权判断的依据。此规则不允许任何例外。</blockquote>
+  </section>
+
+  <section id="s1-8">
+    <div class="sec-head"><span class="sec-no">1.8</span><h3>订阅与数据同步模型</h3></div>
+    <div class="def"><span class="term">定义</span>：订阅（Subscription）是客户端向服务端注册查询语句、并持续接收该查询结果集变更的机制。</div>
+    <p>其生命周期分为三个阶段：</p>
+    <ol>
+      <li><strong>注册</strong>：客户端经 WebSocket 提交查询（如 <code>SELECT * FROM my_finances</code>）；</li>
+      <li><strong>初始快照</strong>：服务端立即返回当前的完整结果集；</li>
+      <li><strong>增量推送</strong>：此后每当某次 Reducer 事务的提交改变了该查询的结果集，服务端自动将增量（插入、更新、删除的行）推送至客户端。</li>
+    </ol>
+    <p>在此模型下，客户端本地持有一份由服务端持续维护的<strong>结果集缓存</strong>，界面渲染始终基于该缓存。客户端不存在「刷新数据」的操作——写入成功后，订阅缓存随推送自动更新，界面随之变化。</p>
+    <p>由此产生一条重要的开发准则：<strong>不要为「写入后读取最新值」设计轮询、回调或手动刷新机制</strong>。Reducer 调用成功即意味着变更已提交，订阅推送必然到达。例如客户端调用 <code>create_salary</code> 成功后，其订阅的 <code>my_salaries</code> 结果集将自动包含新增行。</p>
+  </section>
+
+  <section id="s1-9">
+    <div class="sec-head"><span class="sec-no">1.9</span><h3>ReducerContext（归约器上下文）</h3></div>
+    <div class="def"><span class="term">定义</span>：ReducerContext（形参惯用名 <code>ctx</code>）是 Reducer 执行时可访问的环境对象，是 Reducer 与外部世界交互的唯一通道。</div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>成员</th><th>类型 / 形式</th><th>用途</th></tr></thead>
+      <tbody>
+        <tr><td><code>ctx.db</code></td><td>数据库句柄</td><td>访问各表：<code>ctx.db.表访问器().操作()</code></td></tr>
+        <tr><td><code>ctx.sender()</code></td><td><code>Identity</code></td><td>当前调用者身份（§1.7）</td></tr>
+        <tr><td><code>ctx.timestamp</code></td><td><code>Timestamp</code></td><td>本次事务的时间戳，同一事务内恒定</td></tr>
+        <tr><td><code>ctx.rng()</code> / <code>ctx.random()</code></td><td>随机数接口</td><td>确定性随机源（可重放）</td></tr>
+      </tbody>
+    </table></div>
+    <div class="code-cap">常用数据库操作</div>
+    <pre><code>ctx.db.finance().insert(row);                          // 插入（自增列以 0 占位）
+ctx.db.finance().finance_id().find(id);                // 按主键查找 → Option&lt;Finance&gt;
+ctx.db.finance().finance_by_park().filter(park_id);    // 按索引过滤 → 迭代器
+ctx.db.finance().finance_id().update(row);             // 按主键整行更新
+ctx.db.finance().finance_id().delete(id);              // 按主键删除</code></pre>
+    <p>View 使用与之类似的 <code>ViewContext</code>，仅提供只读能力，且不提供时间源。</p>
+  </section>
+
+  <section id="s1-10">
+    <div class="sec-head"><span class="sec-no">1.10</span><h3>事务模型</h3></div>
+    <p>一次 Reducer 调用即一个事务，具备原子性与隔离性：调用内对任意多张表的任意多次操作，要么全部生效，要么（在返回 <code>Err</code> 或 panic 时）全部撤销。</p>
+    <p>该性质决定了一条设计规则：<strong>若两张表必须同时变更才能保持业务一致，则相应写入必须置于同一个 Reducer 内</strong>，而不得拆分为两个 Reducer 由客户端顺序调用——后者在第二次调用失败时将产生不一致的中间状态。本项目中「工资记录 + 工资-流水关联 + 财务流水」三表的联动写入即遵循此规则（见 §2.7）。</p>
+  </section>
+
+  <section id="s1-11">
+    <div class="sec-head"><span class="sec-no">1.11</span><h3>客户端绑定（Client Bindings）</h3></div>
+    <div class="def"><span class="term">定义</span>：客户端绑定是由 SpacetimeDB CLI 依据模块定义自动生成的客户端代码，包含每张表的行类型、每个 Reducer 与 Procedure 的类型安全调用接口、每个 View 的订阅接口。</div>
+    <p>本项目的绑定生成至仓库根目录的 <code>src/spacetime_bindings/</code>，由 Dioxus 前端引用。<strong>凡修改了 Table、View、Reducer、Procedure 或其输入输出类型，必须重新生成绑定</strong>，否则前端代码与服务端接口不一致。生成命令及注意事项见 README 第九节。生成产物不得手工修改。</p>
+  </section>
+
+  <section id="s1-12">
+    <div class="sec-head"><span class="sec-no">1.12</span><h3>确定性约束</h3></div>
+    <div class="def"><span class="term">定义</span>：确定性（Determinism）指函数在相同输入下必然产生相同输出、且不产生外部可观察副作用的性质。SpacetimeDB 要求 Reducer 严格满足确定性，因为事务日志重放与多副本一致性均依赖「同一事务在任何时间、任何副本上重新执行结果相同」这一前提。</div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>需求</th><th>禁止使用</th><th>应当使用</th></tr></thead>
+      <tbody>
+        <tr><td>获取当前时间</td><td><code>std::time::SystemTime</code> 等系统时钟</td><td><code>ctx.timestamp</code></td></tr>
+        <tr><td>生成随机数</td><td><code>rand::thread_rng</code> 等系统随机源</td><td><code>ctx.rng()</code> / <code>ctx.random()</code></td></tr>
+        <tr><td>网络请求（短信等）</td><td>在 Reducer 内发起请求</td><td>移至 Procedure</td></tr>
+        <tr><td>文件读写</td><td>任何文件系统访问</td><td>不适用（数据一律入表）</td></tr>
+      </tbody>
+    </table></div>
+    <p>对本项目而言，该约束具有积极意义：它以平台强制的方式保证了每个 Reducer 都是「数据库状态与参数到新状态」的确定函数，即引用透明性由运行时保障而非编码自律。这是第二章所述函数式架构得以成立的基础。</p>
+  </section>
+
+  <section id="s1-13">
+    <div class="sec-head"><span class="sec-no">1.13</span><h3>Schema 演进约束</h3></div>
+    <p>Schema（表结构定义的总和）的变更能力是 SpacetimeDB 与传统数据库差异最大、且对日常开发影响最直接的一点。下表为在 SpacetimeDB 2.6.1 上<strong>逐项实验验证</strong>的迁移行为（实验方法：本地探针模块，建表并插入数据后实施变更，不携带 <code>--delete-data</code> 参数发布，核对数据存续；结论与官方 Automatic Migrations 文档相互印证）：</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>变更类型</th><th><code>spacetime publish</code> 行为</th><th>数据</th><th>依据</th></tr></thead>
+      <tbody>
+        <tr><td>新增表 / Reducer / View / Procedure</td><td class="ok">自动迁移</td><td>保留</td><td>生产环境与本机实测</td></tr>
+        <tr><td>对已有表新增或移除索引</td><td class="ok">自动迁移</td><td>保留</td><td>本机实测</td></tr>
+        <tr><td>表尾追加带 <code>#[default(...)]</code> 标注的列</td><td class="ok">自动迁移，存量行填入默认值</td><td>保留</td><td>本机实测</td></tr>
+        <tr><td>追加无默认值标注的列</td><td class="no">拒绝发布（提示 requires a default value annotation）；仅 <code>--delete-data</code> 可强制通过</td><td>强制通过则全库清空</td><td>本机实测</td></tr>
+        <tr><td>修改、删除、重排已有列</td><td class="no">拒绝发布；仅 <code>--delete-data</code> 可强制通过</td><td>强制通过则全库清空</td><td>类型修改为本机实测，其余为官方文档</td></tr>
+        <tr><td>删除表；为已有列新增 Unique / 主键约束</td><td class="no">官方文档列为禁止</td><td>—</td><td>官方文档，未逐项实测</td></tr>
+      </tbody>
+    </table></div>
+    <p><code>#[default(...)]</code> 标注的使用规则（均为 2.6.1 实测结论）：</p>
+    <ol>
+      <li>整数字面量必须携带类型后缀，如 <code>#[default(0u64)]</code>。无后缀的字面量将按 32 位宽度序列化，发布时服务端校验失败；</li>
+      <li><code>Option</code> 类型的列应写 <code>#[default(None::&lt;T&gt;)]</code>——<code>None</code> 必须以 turbofish 语法标注类型，否则无法通过类型推断；</li>
+      <li>默认值表达式在 const 上下文求值，带析构器的类型不可用作默认值——非空 <code>String</code> 列因此无法追加（编译错误 E0493）。需要追加字符串列时，应使用 <code>Option&lt;String&gt;</code>。</li>
+    </ol>
+    <p>由此得出的规则（依据实测结果于 2026-08 修订；本文早期版本称「新增索引、新增列一律须清库」，经实验证伪并更正）：</p>
+    <ol>
+      <li><strong>扩展已有表时，优先考虑表尾追加带默认值标注的列</strong>（适用于整数、布尔、<code>Option&lt;T&gt;</code> 等类型）；需要非空字符串列、或所建模的关系本身为一对多时，采用关联表（范例：<code>salary_finance</code>，§2.7）。</li>
+      <li><strong>修改、删除既有列不可平滑迁移</strong>，此类需求必须重新设计：追加新列、新建关联表，或经数据导出重建。</li>
+      <li><strong>索引可以随时增删</strong>，无需在建表时穷尽预判。</li>
+      <li><strong>CI 变量 <code>YIZU_SPACETIMEDB_DELETE_DATA</code> 必须保持 <code>false</code>。</strong>该变量为 <code>true</code> 时推送主分支将清空生产数据库。</li>
+    </ol>
+    <blockquote>任何涉及表结构的改动，提交前必须回答两个问题：是否修改或删除了已存在的列；是否追加了无默认值标注的列。任一答案为是，改动方案必须重新设计。</blockquote>
+  </section>
+</div>
+
+<!-- ═══════════════ 第二章 ═══════════════ -->
+<div class="chapter" id="ch2">
+  <div class="chapter-head">
+    <div class="chapter-label">
+      <div class="chapter-num">02</div>
+      <div class="chapter-title">总体架构</div>
+    </div>
+  </div>
+
+  <section id="s2-1">
+    <div class="sec-head"><span class="sec-no">2.1</span><h3>架构风格概述</h3></div>
+    <p>本项目的架构可概括为：<strong>平台强制的命令查询职责分离（CQRS），叠加函数式核心与命令式外壳的代码组织，按业务域垂直切分</strong>。本章依次说明各组成部分的定义、实现方式与设计依据。</p>
+    <p>为便于已阅读过函数式领域建模文献（如 Scott Wlaschin, <em>Domain Modeling Made Functional</em>）的读者建立对应关系，下表给出文献术语到本仓库实现的映射：</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>文献术语</th><th>本仓库中的实现</th><th>详见</th></tr></thead>
+      <tbody>
+        <tr><td>CQRS（命令查询职责分离）</td><td>Reducer 为命令端，View 为查询端；表全私有使分离成为强制</td><td>§2.3</td></tr>
+        <tr><td>Bounded Context（限界上下文）</td><td>七个业务域目录，<code>tables/</code>、<code>views/</code>、<code>reducers/</code> 三层同名对齐</td><td>§2.4</td></tr>
+        <tr><td>Shared Kernel（共享内核）</td><td><code>src/access.rs</code> + <code>reducers/shared/</code>：身份、授权、园区哨兵、输入规范化</td><td>§2.5</td></tr>
+        <tr><td>Aggregate（聚合）</td><td>无聚合对象；聚合以「同一 Reducer 事务内共同变更的表集合」的形式存在</td><td>§2.7</td></tr>
+        <tr><td>Domain Event（领域事件）</td><td>无异步事件设施；跨域记账在同一事务内同步完成</td><td>§2.8</td></tr>
+        <tr><td>Smart Constructor（智能构造器）</td><td><code>validated_*</code> 函数族：行的唯一合法构造途径</td><td>§3.1</td></tr>
+        <tr><td>Railway-Oriented Programming</td><td><code>Result</code> 与 <code>?</code> 运算符构成的短路式校验链</td><td>§3.2</td></tr>
+        <tr><td>Functional Core / Imperative Shell</td><td><code>check_*</code>、<code>normalize_*</code> 等纯函数为核心，Reducer 函数体为外壳</td><td>§2.2</td></tr>
+        <tr><td>Make Illegal States Unrepresentable</td><td>在平台类型系统限制处降级为测试期保证，不降级为文档约定</td><td>§2.9</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section id="s2-2">
+    <div class="sec-head"><span class="sec-no">2.2</span><h3>函数式核心与命令式外壳</h3></div>
+    <div class="def"><span class="term">定义</span>：「函数式核心、命令式外壳」（Functional Core, Imperative Shell）是一种代码组织模式：将业务决策——校验、计算、状态判断——实现为<strong>纯函数</strong>（不产生副作用、不依赖外部状态的函数，精确定义见 §3.1），构成系统的核心；将副作用——本项目中即数据库读写——集中于薄薄的外壳层。核心层逻辑密集且完全可测试；外壳层仅做读取、委托与写入，薄至几乎无需测试。</div>
+    <div class="code-cap">标准形态 — reducers/hr/employee/salary.rs</div>
+    <pre><code>// ── 外壳层：读取、委托、写入，不含业务判断 ──────────────────────
+#[spacetimedb::reducer]
+pub fn create_salary(ctx: &amp;ReducerContext, input: SalaryInput) -&gt; Result&lt;(), String&gt; {
+    AdminContext::require(ctx)?;                                  // 副作用：查询权限表
+    let customer_id = current_customer_id(ctx).ok_or("当前用户未选择租户")?;
+    let row = validated_salary(ctx, 0, customer_id, input)?;      // 决策：校验并构造行
+    let row = ctx.db.employee_salary().insert(row);               // 副作用：写入
+    sync_salary_finance(ctx, &amp;row);                               // 副作用：同步财务流水
+    Ok(())
+}
+
+// ── 核心层：纯函数，不接触 ctx，可直接进行单元测试 ──────────────
+#[pure_function::pure]
+fn check_issued_amount(issued: Option&lt;bool&gt;, amount_cents: Option&lt;i64&gt;) -&gt; Result&lt;(), String&gt; {
+    if issued.unwrap_or(false) &amp;&amp; amount_cents.is_none() {
+        return Err("已发放的工资必须填写金额".into());
+    }
+    Ok(())
+}</code></pre>
+    <p>核心层函数的测试位于同一文件底部，测试函数名以中文陈述业务规则（测试规范见 §3.6）：</p>
+    <pre><code>#[test]
+fn 已发放的工资必须有金额() {
+    assert!(check_issued_amount(Some(true), None).is_err());
+}</code></pre>
+    <blockquote><strong>分层判据</strong>：一段逻辑归属核心层还是外壳层，判断标准仅一条——<strong>该逻辑是否需要访问 <code>ctx</code></strong>。参数校验、金额计算、文案拼装、状态机判断均不需要，应当抽取为纯函数；表的读取与写入需要，保留在外壳层，且外壳层不得混入其他逻辑。该判据不再单靠人工执行：核心层函数一律标注 <code>#[pure_function::pure]</code>，由属性宏在编译期拒绝任何接触副作用入口的代码（见 §3.8）。</blockquote>
+  </section>
+
+  <section id="s2-3">
+    <div class="sec-head"><span class="sec-no">2.3</span><h3>命令查询职责分离（CQRS）</h3></div>
+    <div class="def"><span class="term">定义</span>：CQRS（Command Query Responsibility Segregation，命令查询职责分离）是一种将系统的写入路径（命令）与读取路径（查询）分离为两套模型的架构模式。写入模型按数据一致性的需要设计，读取模型按使用方的查询需要设计，两者之间由某种同步机制衔接。</div>
+    <p>在传统技术栈中实施 CQRS 需要自行搭建三个部分：命令模型、查询模型、以及将写入同步至查询侧的机制（通常为事件总线，并伴随最终一致性窗口）。在本项目中，三者均由平台提供：</p>
+    <ul>
+      <li><strong>命令模型</strong>＝私有表＋Reducer。表结构按写入一致性设计：关联表、软删除标记、审计字段、租户归属列。</li>
+      <li><strong>查询模型</strong>＝View。每个 View 按「特定身份的调用者应当看到什么」设计，<code>my_</code> 前缀即此语义的体现。</li>
+      <li><strong>同步机制</strong>＝订阅推送。不存在事件总线，亦不存在最终一致性窗口：事务提交与订阅推送由平台衔接，客户端缓存与数据库状态之间不产生持久分歧。</li>
+    </ul>
+    <p><strong>分离的强制性</strong>：由于 119 张表全部私有，客户端在物理上不存在绕过 View 读取数据的途径；由于客户端无法执行写语句，亦不存在绕过 Reducer 写入的途径。读写分离在本项目中不是编码约定，而是平台层面的结构事实。「忘记为某张表设置权限过滤」这一类事故在此结构下不可能发生——不存在无过滤的读取面。</p>
+    <p><strong>View 编写规范</strong>：全部 111 个 View 遵循统一的四步骨架（以 §1.5 所引 <code>my_finances</code> 为准）：</p>
+    <ol>
+      <li>获取权限范围：<code>current_read_scope(ctx)</code>，获取失败即返回空集；</li>
+      <li>索引查找：优先使用索引缩小候选集（如 <code>finance_by_customer().filter(...)</code>）；</li>
+      <li>谓词过滤：软删除标记（<code>!is_deleted</code>）与园区权限（<code>scope.allows_park(...)</code>）；</li>
+      <li>稳定排序：保证客户端渲染顺序确定。</li>
+    </ol>
+    <p>另有两条禁止性规定：</p>
+    <ul>
+      <li>不得编写「返回全部数据」的 View。新增 View 的首要设计问题是：使用 <code>ReadScope</code> 的哪个方法执行过滤；</li>
+      <li>View 不得写入数据、不得维护跨请求状态——View 是数据库状态到客户端缓存的纯投影。</li>
+    </ul>
+    <p>View 之间允许组合复用：<code>my_finance_images</code> 直接调用 <code>my_finances(ctx)</code> 以复用其权限过滤逻辑，而非重复实现。此种复用应当优先于复制过滤条件。</p>
+  </section>
+
+  <section id="s2-4">
+    <div class="sec-head"><span class="sec-no">2.4</span><h3>限界上下文与垂直切片</h3></div>
+    <div class="def"><span class="term">定义</span>：限界上下文（Bounded Context）是领域驱动设计（Domain-Driven Design, DDD）中的概念，指一个业务模型的适用边界：边界之内术语含义一致、模型自洽；跨越边界的协作必须显式进行。</div>
+    <p>本项目以<strong>垂直切片</strong>实现限界上下文：代码不按技术角色水平分层归类（如全部数据模型归一处、全部服务归一处），而是按业务域垂直切分为七个目录，且 <code>tables/</code>、<code>views/</code>、<code>reducers/</code> 三层使用完全一致的目录命名：</p>
+    <pre><code>修改「工资」相关功能
+  → tables/hr/employee/    （数据定义）
+  → views/hr/              （读取模型）
+  → reducers/hr/employee/  （写入逻辑）</code></pre>
+    <p>七个业务域的职责与规模见 README 第三节。</p>
+    <p><strong>边界的性质</strong>：需要明确指出，Rust 的模块系统中 <code>tables::*</code> 在 crate 内部全局可见，业务域之间不存在编译器强制的访问隔离。上下文边界依靠<strong>纪律</strong>维持，具体而言是以下可枚举的清单：目前全部跨域写入仅有三处，方向一致（业务事实域 → 财务域），处理方式一致（记账以插入实现，撤销以 <code>is_deleted</code> 软删除实现）：</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>业务事实</th><th>代码位置</th><th>产生的财务流水</th></tr></thead>
+      <tbody>
+        <tr><td>账单创建</td><td><code>reducers/finance/billing/amount.rs</code></td><td>类别「账单收入」，方向「收入」</td></tr>
+        <tr><td>报销审批通过</td><td><code>reducers/finance/approvals/reimbursement.rs</code></td><td>类别「其他费用」，方向「支出」</td></tr>
+        <tr><td>工资标记发放</td><td><code>reducers/hr/employee/salary.rs</code>（经 <code>salary_finance</code> 关联表）</td><td>类别「工资支出」，方向「支出」</td></tr>
+      </tbody>
+    </table></div>
+    <p>此外存在一类<strong>治理型跨域操作</strong>：园区注销要处置全库 20 张挂园区的表（§2.9 详述），它不属于某两个域之间的耦合，而是经 <code>ParkChild</code> 清单集中管理的全局规则。</p>
+    <p><strong>审查要求</strong>：代码评审中发现新的跨域写入（即某域的 Reducer 调用 <code>ctx.db.其他域的表()</code> 执行写操作）时，应当依次确认：该写入是否确有必要；能否改为本域内的关联表；若确有必要，是否遵循了「插入记账、软删撤销」的既有处理方式，并已在上表补充登记。</p>
+  </section>
+
+  <section id="s2-5">
+    <div class="sec-head"><span class="sec-no">2.5</span><h3>共享内核</h3></div>
+    <div class="def"><span class="term">定义</span>：共享内核（Shared Kernel）指多个限界上下文共同依赖的一小部分模型与代码。共享内核中的语义变更影响全部上下文，因此其范围应当尽可能小、内容应当高度稳定。</div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>位置</th><th>内容</th><th>职责</th></tr></thead>
+      <tbody>
+        <tr><td><code>src/access.rs</code></td><td><code>Principal</code>、<code>ReadScope</code>、<code>Duty</code>、权限码常量</td><td>权限语义的唯一实现。<code>allows_park</code>、<code>allows_optional_park</code>、<code>has_code</code>、<code>owns_or_has_duty</code> 等方法定义「谁能读取什么」</td></tr>
+        <tr><td><code>reducers/shared/access.rs</code></td><td><code>AdminContext::require</code>、<code>current_customer_id</code>、各 <code>require_*</code> 函数</td><td>Reducer 侧门卫：身份或目标记录缺失时返回中文错误信息</td></tr>
+        <tr><td><code>reducers/shared/park_ref.rs</code></td><td>常量 <code>NO_PARK</code>（值为 0）</td><td>园区外键哨兵值及其设计依据（模块文档为完整的决策记录，见 §2.9）</td></tr>
+        <tr><td><code>reducers/shared/validation.rs</code></td><td><code>required_text</code>、<code>normalize_optional_text</code>、<code>limited_optional_text</code>、<code>normalize_status</code></td><td>输入规范化：去除首尾空白、空串归一为 <code>None</code>、长度校验、MySQL 历史状态值归一</td></tr>
+        <tr><td><code>reducers/shared/bootstrap.rs</code></td><td>管理员初始化</td><td>由 <code>lifecycle.rs</code> 的 <code>init</code> 钩子调用，完成首次发布后的账号引导</td></tr>
+        <tr><td><code>views/shared/identity.rs</code></td><td><code>current_user</code>、<code>current_center_user</code></td><td>View 侧身份判定，实现完全委托 <code>crate::access</code></td></tr>
+      </tbody>
+    </table></div>
+    <p>最后一行体现共享内核的核心价值：View 与 Reducer 对「调用者是谁、能读取什么」的判定出自同一份实现，读取侧与写入侧的权限口径在结构上不可能发生分歧。</p>
+    <blockquote><strong>准入标准</strong>：仅当某项能力被两个以上业务域需要、且各域要求的语义完全一致时，方可进入共享内核。恰好可被多处复用的一般性工具函数不属于共享内核，应当就近放置于使用方所在的域。</blockquote>
+  </section>
+
+  <section id="s2-6">
+    <div class="sec-head"><span class="sec-no">2.6</span><h3>数据建模通则</h3></div>
+    <p>各业务域的表定义遵循以下统一规则（其依据分别见括号内章节）：</p>
+    <ol>
+      <li><strong>金额一律以整数「分」存储</strong>，字段类型 <code>i64</code>，命名后缀 <code>_cents</code>。全部 119 张表中浮点字段数为零。依据：浮点运算的舍入误差不可用于货币计算。</li>
+      <li><strong>时间一律使用 <code>spacetimedb::Timestamp</code></strong>，不以字符串存储时间（仅存量遗留 3 个 <code>Option&lt;String&gt;</code> 字段）。</li>
+      <li><strong>园区外键一律为 <code>u64</code>，以常量 <code>NO_PARK</code>（0）表示「不属于任何园区」</strong>，不使用 <code>Option&lt;u64&gt;</code>（依据见 §2.9）。</li>
+      <li><strong>业务对象普遍具备</strong>：自增主键、租户归属列 <code>customer_id</code>、审计时间 <code>created_at</code> / <code>updated_at</code>、软删除标记 <code>is_deleted</code>。</li>
+      <li><strong>软删除</strong>：业务对象的删除以置位 <code>is_deleted = true</code> 实现，数据不作物理删除；物理删除仅适用于纯关系行（图片关联、<code>salary_finance</code> 等连接表）。财务流水的撤销（冲销）即软删除。</li>
+      <li><strong>模块注册</strong>：表定义文件的 <code>mod</code> 声明名不得与表的 <code>accessor</code> 同名，否则将遮蔽属性宏生成的访问器项导致编译错误。统一写法：<code>#[path = "salary.rs"] mod salary_table;</code> 继而 <code>pub use salary_table::*;</code>。</li>
+    </ol>
+  </section>
+
+  <section id="s2-7">
+    <div class="sec-head"><span class="sec-no">2.7</span><h3>聚合与事务边界</h3></div>
+    <div class="def"><span class="term">定义</span>：聚合（Aggregate）是 DDD 中的一致性单元——一组必须共同保持业务一致的对象，外部只能通过聚合根提供的入口修改其状态，一次修改构成一个事务。</div>
+    <p>本项目不存在聚合对象、仓储层等显式设施；<strong>聚合以事务边界的形式存在</strong>，即「在同一个 Reducer 事务内共同变更的表集合」。两个代表性实例：</p>
+    <ul>
+      <li><strong>工资聚合</strong>＝<code>employee_salary</code>（工资记录）＋<code>salary_image</code>（附件关联）＋<code>salary_finance</code>（工资-流水关联）＋<code>finance</code>（财务流水）。<code>create/update/delete_salary</code> 及其携带附件的变体是仅有的修改入口，四张表的一致性在单一事务内维护：标记发放时记账、修改金额时同步、取消发放时冲销、删除记录时解除关联。</li>
+      <li><strong>园区聚合</strong>最大：注销时按 <code>ParkChild</code> 清单处置 20 张子表——存在账务记录（合同、账单、流水、报销等）时拒绝注销；纯资产台账（厂房、楼层、水电表、图片关联、授权关系）随园区级联软删除。</li>
+    </ul>
+    <blockquote><strong>设计规则</strong>：若开发中发现两张表必须同时变更方能保持正确，则二者属于同一聚合，相应写入必须合并至同一个 Reducer；禁止将其拆分为多个 Reducer 由客户端顺序调用（依据见 §1.10）。</blockquote>
+  </section>
+
+  <section id="s2-8">
+    <div class="sec-head"><span class="sec-no">2.8</span><h3>领域事件的同步实现</h3></div>
+    <div class="def"><span class="term">定义</span>：领域事件（Domain Event）是 DDD 中表示「业务上已发生的事实」的建模元素，典型实现为：事实发生方发布事件，关注方异步订阅并作出反应，两侧经消息设施解耦。</div>
+    <p>以工资发放为例，教科书式的实现为：人事上下文发布 <code>SalaryIssued</code> 事件，财务上下文订阅该事件并登记支出流水。该方案的代价是事件基础设施本身，以及发布与消费之间的最终一致性窗口。</p>
+    <p>本项目未采用异步事件，而是<strong>在同一事务内同步完成跨域记账</strong>（即 §2.4 所列三处跨域写入）。其依据为：异步事件解耦所解决的问题——两个服务、两个数据库、无法共享事务——在单模块架构中不存在；平台已提供跨表原子性，引入事件设施将以引入最终一致性窗口为代价换取此处不需要的解耦。</p>
+    <div class="axiom">一般性原则：<span>不引入当前架构中无对应问题的间接层。</span></div>
+  </section>
+
+  <section id="s2-9">
+    <div class="sec-head"><span class="sec-no">2.9</span><h3>类型驱动设计的边界与补偿策略</h3></div>
+    <p>函数式领域建模提倡「使非法状态不可表示」（Make Illegal States Unrepresentable）：借助类型系统使错误在编译期即不可能发生。典型手段包括以新类型（newtype）包装标识符（如 <code>ParkId(u64)</code>，防止将厂房 ID 误传给园区参数），以及用 <code>Option&lt;T&gt;</code> 表达可缺省值。</p>
+    <p><strong>平台限制</strong>：SpacetimeDB 规定索引过滤参数必须实现 <code>FilterableValue</code> trait。该 trait 为密封（sealed）trait，仅覆盖整数、<code>bool</code>、字符串、<code>Identity</code>、<code>Timestamp</code> 与无载荷枚举。<strong>newtype 与 <code>Option&lt;u64&gt;</code> 均不在其中</strong>：以此类类型声明的列即使声明了 B 树索引，也无法调用 <code>.filter()</code> 执行索引查找，只能全表遍历。因此上述两种手段在表定义中不可用。</p>
+    <p>对因平台限制而无法获得编译期保证的约束，本项目遵循一条明确的降级路线：</p>
+    <div class="axiom">编译期保证降级为<span>测试期保证</span>；不降级为文档约定。</div>
+    <p>即：凡是希望编译器强制、而编译器无法强制的完整性约束，必须由一条会失败的自动化测试承担，而不是写入文档寄望开发者自觉遵守。</p>
+    <h4><span class="tag">■</span> 完整案例：园区注销（reducers/rental/park/deletion.rs）</h4>
+    <p>业务约束为：每一张携带 <code>park_id</code> 列的表，在园区注销时都必须有明确的处置方式（拦截或级联），不得遗漏——遗漏即产生指向已删园区的孤儿数据。该约束由两道机制先后承担。</p>
+    <p><strong>第一道，编译期</strong>。每张携带 <code>park_id</code> 的表对应枚举 <code>ParkChild</code> 的一个变体，处置方式定义于不含通配分支的 <code>match</code> 表达式。新增变体后，<code>spec</code>、<code>blocked_rows</code>、<code>cascade</code> 三个 <code>match</code> 同时产生「未覆盖变体」编译错误，处置方式的遗漏在编译期即被阻止：</p>
+    <pre><code>pub(crate) enum ParkChild {
+    RentalTenant, AmountBill, Finance, /* ……共 21 个变体 …… */
+}
+
+const fn spec(self) -&gt; (&amp;'static str, Disposition) {
+    match self {
+        Self::RentalTenant =&gt; ("rental_tenant", Disposition::Block("份合同")),
+        Self::Finance      =&gt; ("finance",       Disposition::Block("笔财务流水")),
+        Self::Factory      =&gt; ("factory",       Disposition::Cascade),
+        // 注意：不存在 `_` 通配分支。遗漏变体是编译错误，而非运行时缺陷。
+        /* …… */
+    }
+}</code></pre>
+    <p><strong>第二道，测试期</strong>。「表已建立但从未在 <code>ParkChild</code> 中登记」是编译器无法察觉的（不存在未覆盖的变体）。测试 <code>所有挂园区的表都已登记</code> 递归扫描 <code>src/tables</code> 目录的源代码，提取全部携带 <code>park_id</code> 列的表访问器名，与 <code>PARK_CHILDREN</code> 清单双向核对——存在未登记的表、或清单中存在已不携带该列的表，测试均告失败：</p>
+    <pre><code>#[test]
+fn 所有挂园区的表都已登记() {
+    let declared = PARK_CHILDREN.iter().map(|c| c.spec().0.to_string()).collect::&lt;BTreeSet&lt;_&gt;&gt;();
+    let actual = tables_with_park_column();   // 递归扫描 src/tables/**/*.rs
+    assert!(actual.difference(&amp;declared).count() == 0,
+        "这些表带 park_id 但没在 ParkChild 里登记，园区注销时会留下孤儿数据");
+    assert!(declared.difference(&amp;actual).count() == 0,
+        "这些表已经不带 park_id 了，请从 ParkChild 移除");
+}</code></pre>
+    <p><strong>同一策略对哨兵值的应用</strong>：由于 <code>Option&lt;u64&gt;</code> 不可用作可过滤列，「不属于任何园区」以哨兵常量 <code>NO_PARK</code>（0）表达。哨兵值的固有风险在于语义散落——若各处代码各自判断 0 的含义，遗漏与分歧不可避免。本项目的处理是将哨兵语义<strong>收拢至单一位置</strong>：<code>ReadScope::allows_optional_park</code> 统一规定「<code>park_id</code> 为 <code>NO_PARK</code> 的行仅对不受园区限制的账号可见」，全部 View 经由该方法判断；同时 <code>park_ref.rs</code> 的模块文档完整记载了该设计的成因、代价与对策，作为后续维护者的决策依据。</p>
+  </section>
+
+  <section id="s2-10">
+    <div class="sec-head"><span class="sec-no">2.10</span><h3>外部集成与网关架构</h3></div>
+    <p><strong>问题界定</strong>：SpacetimeDB 的「单体」主张（§1.1）覆盖的范围是数据库进程内部——不再需要 ORM、连接池与缓存层；它不覆盖与外部系统的集成。WASM 沙箱在平台层面无法承担以下职责：监听入站回调（支付、合同签署等 webhook）、维持长连接（门禁与水电表设备的 MQTT 等）、维护跨请求的限流状态；Procedure（§1.6）只能同步发起出站请求并等待响应。这些是平台硬约束，无法以设计绕过。因此「完全单进程」的理想不可实现；应当保持的单体是<strong>语言与工具链层面的单体</strong>——全部服务端能力以 Rust 实现，不引入 Go、Java 等异构网关技术栈，集成需求的增长不增加团队的语言心智负担。</p>
+    <p><strong>既有设施</strong>：本项目前端以 Dioxus fullstack 形态部署，其底层构建于 Axum 之上——<code>dioxus::launch</code> 默认初始化一个 Axum 服务器，<code>dioxus::serve</code> 允许取得底层 router 并自由挂载路由与中间件。亦即：系统中已经存在一个常驻的 Rust HTTP 服务进程，网关能力应当生长于其上，而非另立技术栈。</p>
+    <h4><span class="tag">■</span> 架构决策：网关能力由现有 Dioxus/Axum 进程承担</h4>
+    <p>外部集成能力由<strong>现有的 Dioxus fullstack 进程承担</strong>。webhook 接收、设备接入、限流、对账等网关职责，以「向该进程的 Axum router 挂载路由、向其 tokio runtime 派生后台任务」的方式实现；系统的部署组件保持<strong>两个</strong>——SpacetimeDB 的 <code>.wasm</code> 模块与 Dioxus/Axum 二进制。不新建独立网关服务，不另开编译单元，以简单性为先。落地形态如下：</p>
+    <pre><code>// main.rs（server feature 下）
+dioxus::serve(|| async move {
+    let mut router = dioxus::server::router(app);
+
+    // 网关自有路由——与 Dioxus 页面路由隔离的命名空间
+    router = router
+        .nest("/gateway", gateway::router())   // webhook 接收、健康检查
+        .layer(tower_http::trace::TraceLayer::new_for_http());
+
+    // 启动时派生后台任务，订阅 SpacetimeDB 的集成任务表
+    tokio::spawn(gateway::worker::run());
+
+    Ok(router)
+});</code></pre>
+    <p><strong>预留的拆分路径（预案，不属于当前方案）</strong>：若将来物联网设备的 MQTT 连接量或回调流量显著增大，与页面渲染争用同一 tokio runtime 线程池，可在同一 Cargo workspace 内把网关模块迁入独立二进制（如 <code>server/gateway/</code>），获得独立的进程与部署生命周期。由于语言与依赖自始共享，届时的拆分成本仅为把相关 <code>mod</code> 迁入新的二进制入口，业务代码基本不变。该预案的存在正是两组件方案可以放心采用的原因：当前的选择不会构成将来难以离开的结构。</p>
+    <h4><span class="tag">■</span> 出站异步集成的标准模式：事务性发件箱（Transactional Outbox，规划）</h4>
+    <div class="def"><span class="term">定义</span>：事务性发件箱是分布式系统中解决「双写问题」——业务状态与对外通知必须同时成功或同时失败——的经典模式：把「需要通知外部」这一事实作为一行数据，与业务状态在<strong>同一个事务</strong>内写入；投递方异步读取该表执行实际调用，并写回执行结果。</div>
+    <p>该模式在本项目中的形态：</p>
+    <pre><code>业务 Reducer ──（同一事务：业务状态 + 任务行）──→ integration_task 表
+integration_task（status = 'pending'）──（订阅推送，§1.8）──→ 网关后台任务
+网关 ──（调用外部系统：短信 / 账单推送 / 硬件指令 / 合同签署）──→ 外部服务
+网关 ──（调用专用 Reducer，幂等写回）──→ integration_task 状态更新</code></pre>
+    <p>该模式的三项价值：</p>
+    <ol>
+      <li><strong>解决双写问题</strong>：业务变更与任务行在同一事务内落库，要么都成立、要么都不成立；Reducer 保持确定性（§1.12），外部调用完全移出事务；</li>
+      <li><strong>重试与审计免费获得</strong>：任务行天然携带状态、尝试次数与时间戳——是否送达、失败几次、卡在何处，查表即知，失败任务可重新驱动；</li>
+      <li><strong>与 CQRS 结构一致</strong>：任务表是一张普通私有表，写入走 Reducer、读取走订阅，不引入任何新概念。</li>
+    </ol>
+    <p><strong>获取任务用订阅，不用轮询与消息队列</strong>：网关以 SpacetimeDB Rust <strong>Client SDK</strong>（区别于模块侧的 <code>spacetimedb</code> 库）作为特权客户端接入数据库，订阅 <code>integration_task</code> 表中 <code>status = 'pending'</code> 的行，新任务经平台原生推送到达，零轮询延迟。引入 Kafka 等消息队列相当于重新搭建 §1.1 中平台已消除的设施，不予采用；轮询仅作为订阅断线重连后的补扫兜底。</p>
+    <p><strong>适用范围</strong>：该模式覆盖「出站且允许最终一致性」的集成——批量催收短信、账单推送、硬件指令下发、电子合同签署等。它不覆盖三类需求：入站回调（webhook 由外部主动发起，仍由 Axum 路由接收）、用户等待结果的同步调用、MQTT 长连接。亦即：<strong>任务表是网关的出站异步标准模式，而非网关本身</strong>。现有登录短信验证码属用户等待的同步流程，维持 Procedure 现状（§1.6），不迁入该模式；批量催收短信为该模式的首个改造候选。</p>
+    <p><strong>任务表的设计要求</strong>（依 §1.13，列须一次设计到位）：</p>
+    <ol>
+      <li><strong>状态机</strong>：<code>pending → processing → done / failed</code>，状态流转仅经专用 Reducer 完成；</li>
+      <li><strong>重试控制</strong>：尝试次数与下次重试时间列，按退避策略重试；</li>
+      <li><strong>幂等键</strong>：外部接口可能重复回执，写回 Reducer 必须依幂等键去重；</li>
+      <li><strong>死信处理</strong>：重试次数耗尽转入 <code>failed</code> 并在管理界面可见，不允许静默丢失；</li>
+      <li><strong>租户归属</strong>：<code>customer_id</code> 列，与全库建模通则一致（§2.6）。</li>
+    </ol>
+    <h4><span class="tag">■</span> 实现选型</h4>
+    <div class="table-wrap"><table>
+      <thead><tr><th>需求</th><th>crate</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td>HTTP 服务框架</td><td><code>axum</code></td><td>Dioxus 底层已在使用，webhook 接收路由直接复用</td></tr>
+        <tr><td>出站 HTTP 调用</td><td><code>reqwest</code></td><td>调用支付、合同、政务等外部接口</td></tr>
+        <tr><td>连接 SpacetimeDB</td><td>SpacetimeDB Rust Client SDK</td><td>特权客户端：订阅任务表、回调专用 Reducer</td></tr>
+        <tr><td>MQTT（门禁 / 水电表）</td><td><code>rumqttc</code></td><td>纯 Rust MQTT 客户端，与 EMQX 配合成熟</td></tr>
+        <tr><td>限流</td><td><code>governor</code></td><td>纯 Rust 令牌桶限流器，异步友好</td></tr>
+        <tr><td>重试 / 退避</td><td><code>backoff</code> 或 <code>tokio-retry</code></td><td>处理外部接口偶发失败</td></tr>
+        <tr><td>定时对账任务</td><td><code>tokio-cron-scheduler</code> 或 <code>tokio::time::interval</code></td><td>支付、合同对账补偿</td></tr>
+        <tr><td>对象存储（合同 PDF 等）</td><td><code>aws-sdk-s3</code>（S3 兼容端点）或 <code>oss-rust-sdk</code></td><td>阿里云 OSS 建议走 S3 兼容模式</td></tr>
+        <tr><td>中间件（日志 / 追踪 / CORS）</td><td><code>tower</code> / <code>tower-http</code></td><td>与 axum 无缝集成</td></tr>
+      </tbody>
+    </table></div>
+    <p><strong>生态短板的如实说明</strong>：熔断器（circuit breaker）在 Rust 生态中缺少与 Java Resilience4j 同等成熟度的主流实现（<code>failsafe-rs</code> 存在但维护活跃度一般）。该能力需自行实现一个三态状态机（closed / open / half-open，附失败计数），代码量在数十行内，实现成本低，但没有拿来即用的现成方案，须自行实现并测试。</p>
+    <div class="axiom">结论：网关能力是「向现有 Axum router 添加路由与后台任务」的问题，<span>而非「再选一个技术栈」的问题。</span></div>
+    <p>本项目以两个组件为定案：<code>.wasm</code> 模块承担业务状态与规则，Dioxus/Axum 进程承担页面服务与外部集成；拆分独立二进制仅作为流量隔离需求实际出现时的预案。</p>
+  </section>
+</div>
+
+<!-- ═══════════════ 第三章 ═══════════════ -->
+<div class="chapter" id="ch3">
+  <div class="chapter-head">
+    <div class="chapter-label">
+      <div class="chapter-num">03</div>
+      <div class="chapter-title">编程规范</div>
+    </div>
+  </div>
+  <p>本章规定编写服务端代码时应当遵循的具体规范。各条规范均以仓库中的现有代码为范例。</p>
+
+  <section id="s3-1">
+    <div class="sec-head"><span class="sec-no">3.1</span><h3>纯函数优先与智能构造器</h3></div>
+    <div class="def"><span class="term">定义</span>：纯函数（Pure Function）指同时满足以下两个条件的函数：（一）输出完全由输入决定，相同输入必然产生相同输出；（二）不产生副作用，即不修改任何外部状态、不执行输入输出操作。纯函数可以脱离运行环境独立测试与推理。</div>
+    <p>本项目中，「不接触 <code>ctx</code>」的函数即纯函数（<code>ctx</code> 是副作用的唯一来源，见 §1.9）。每个 Reducer 源文件应当呈现如下标准结构：</p>
+    <pre><code>若干 #[spacetimedb::reducer] 外壳函数（薄，负责读取、委托、写入）
+    ↓ 调用
+validated_x(ctx, id, customer_id, input) -&gt; Result&lt;Row, String&gt;   ← 智能构造器
+    ↓ 调用
+若干 check_* / normalize_* 纯函数（厚，承载全部业务规则）
+    ↓
+#[cfg(test)] mod tests（中文命名，只测纯函数）</code></pre>
+    <div class="def"><span class="term">定义</span>：智能构造器（Smart Constructor）指「校验输入并构造合法值」的函数——调用方无法绕过校验直接获得该类型的值，从而保证凡存在的值皆合法。本项目的 <code>validated_*</code> 函数族即此模式：<code>create</code> 与 <code>update</code> 两条路径均从 <code>validated_x</code> 获取行值，业务规则仅实现一次。该函数返回 <code>Result&lt;Row, String&gt;</code>：成功时给出合法的行，失败时给出可直接展示给用户的中文错误信息。</div>
+    <p>（<code>validated_*</code> 因需查询关联记录存在性而接受 <code>ctx</code> 参数，属外壳层；其内部调用的 <code>check_*</code> 等规则函数必须保持纯函数性质。）</p>
+  </section>
+
+  <section id="s3-2">
+    <div class="sec-head"><span class="sec-no">3.2</span><h3>错误处理</h3></div>
+    <div class="def"><span class="term">定义</span>：「错误即值」指以普通返回值（Rust 中的 <code>Result</code> 类型）表达失败，而非异常机制。「面向铁路的编程」（Railway-Oriented Programming）是对 <code>Result</code> 链式处理的比喻：程序沿成功轨道执行，任一环节失败即切换至错误轨道直达出口，后续环节不再执行。Rust 的 <code>?</code> 运算符即该模式的语言级支持。</div>
+    <ol>
+      <li><strong>错误类型统一为 <code>String</code></strong>，Reducer 返回 <code>Result&lt;(), String&gt;</code>，校验函数返回 <code>Result&lt;T, String&gt;</code>，以 <code>?</code> 逐层传播。</li>
+      <li><strong>错误文案以最终用户为读者</strong>，使用中文，直接说明业务原因：「已发放的工资必须填写金额」「当前用户未选择租户」。不得使用面向开发者的表述（<code>invalid input</code>）或错误码（<code>E1042</code>）。前端接收 <code>Err</code> 后直接展示，不存在翻译层。</li>
+      <li><strong>拦截类错误必须指明出路</strong>。仅告知「不允许」而不说明「应当怎么做」的错误信息不合格。范例（园区注销被拦截时，<code>deletion.rs</code>）：文案逐项列出阻止注销的记录数量，并明确指出替代操作——「如果只是不再经营，请把园区状态改为『停用』；确实要删，请先处理这些记录。」</li>
+    </ol>
+  </section>
+
+  <section id="s3-3">
+    <div class="sec-head"><span class="sec-no">3.3</span><h3>不可变数据与更新模式</h3></div>
+    <p>本项目中行是值（value）：不存在 setter 方法、部分字段更新语句或共享可变状态。更新的唯一形式是<strong>取出—修改本地副本—整行写回</strong>：</p>
+    <pre><code>let Some(mut finance) = ctx.db.finance().finance_id().find(link.finance_id) else { return };
+finance.is_deleted = true;                      // 修改的是本地副本
+finance.updated_at = Some(ctx.timestamp);
+ctx.db.finance().finance_id().update(finance);  // 整行写回</code></pre>
+    <p>软删除（§2.6 第 5 条）是同一理念对删除操作的延伸：业务对象的消亡同样是一次状态变更（<code>is_deleted</code> 置位），而非数据的消失。</p>
+  </section>
+
+  <section id="s3-4">
+    <div class="sec-head"><span class="sec-no">3.4</span><h3>迭代器管道</h3></div>
+    <p>读取路径统一采用迭代器管道的声明式风格：<code>索引访问器().filter(键)</code> → <code>.filter(谓词)</code> → 终结操作（<code>.collect()</code>、<code>.count()</code>、<code>.next()</code>、<code>.any()</code>）。两条规则：</p>
+    <ol>
+      <li><strong>索引查找先于谓词过滤</strong>。<code>finance_by_customer().filter(id)</code> 是索引查找，复杂度与结果集成正比；<code>.filter(|f| !f.is_deleted)</code> 是逐行谓词判断。顺序颠倒即全表遍历。</li>
+      <li><strong>按需物化</strong>。需要排序或多次遍历时方才 <code>.collect::&lt;Vec&lt;_&gt;&gt;()</code>；单值判断使用 <code>.next()</code>、<code>.any()</code> 等惰性终结操作，不将迭代器习惯性收集为向量。</li>
+    </ol>
+  </section>
+
+  <section id="s3-5">
+    <div class="sec-head"><span class="sec-no">3.5</span><h3>穷尽模式匹配</h3></div>
+    <blockquote><strong>规范</strong>：对枚举与状态组合的分支处理必须逐一列出全部情形，<strong>禁止使用 <code>_</code> 通配分支</strong>。依据：通配分支使编译器丧失完备性检查能力——新增枚举变体或新状态组合后，遗漏的处理逻辑不再表现为编译错误，而是表现为运行时的静默缺陷。</blockquote>
+    <p>范例一：<code>sync_salary_finance</code>（<code>salary.rs</code>）将「发放状态 × 关联存在性」的四种组合完整列出，每种组合的处理一目了然：</p>
+    <pre><code>match (salary.issued.unwrap_or(false), link) {
+    (true,  None)       =&gt; { /* 首次发放：插入流水并建立关联 */ }
+    (true,  Some(link)) =&gt; { /* 再次发放或修改金额：复用同一笔流水，更新并恢复 */ }
+    (false, Some(link)) =&gt; { /* 取消发放：软删除流水，保留关联以备恢复 */ }
+    (false, None)       =&gt; { /* 未发放且未记账：无操作 */ }
+}</code></pre>
+    <p>范例二：<code>deletion.rs</code> 的 <code>blocked_rows</code> 对不参与拦截的变体逐一列出而非以 <code>_</code> 概括，其代码注释说明了理由——若写通配分支，日后新增一张应当拦截的表而遗漏计数实现时，函数将静默返回 0 而放行注销，产生孤儿数据。</p>
+  </section>
+
+  <section id="s3-6">
+    <div class="sec-head"><span class="sec-no">3.6</span><h3>测试规范</h3></div>
+    <p>服务端现有 97 个单元测试，全部作用于纯函数。<strong>不对 <code>ctx</code> 做模拟（mock）</strong>：依据 §2.2 的分层判据，需要 <code>ctx</code> 的逻辑本就不应承载业务规则，可测试性问题应通过调整分层解决，而非引入模拟设施。</p>
+    <p>测试分为两类：</p>
+    <ol>
+      <li><strong>例证测试</strong>：测试函数名以中文完整陈述一条业务规则，函数体给出正反例证。现有范例：<code>已发放的工资必须有金额</code>、<code>必填文本会去除首尾空格</code>、<code>状态值兼容_mysql_历史数据</code>、<code>只列出真正存在的记录并指向停用</code>。测试列表整体构成业务规格说明。</li>
+      <li><strong>完备性核对测试</strong>：扫描源代码或核对清单，承接编译器无法承担的完整性约束（§2.9 的降级路线）。现有范例：<code>所有挂园区的表都已登记</code>、<code>所有名为_check_或_normalize_的函数都已标记为纯函数</code>（§3.8）。</li>
+    </ol>
+    <p><strong>覆盖要求</strong>：每个 <code>check_*</code> / <code>normalize_*</code> 纯函数至少具备一个正向用例与一个反向用例；涉及全局清单（如 <code>ParkChild</code>）的改动须确认相应核对测试仍然通过。</p>
+  </section>
+
+  <section id="s3-7">
+    <div class="sec-head"><span class="sec-no">3.7</span><h3>文档规范</h3></div>
+    <p>模块级文档注释（<code>//!</code>）用于记载<strong>设计决策及其依据</strong>——当时面临的约束、被否决的备选方案、选定方案的代价与对策。行内注释仅说明代码自身无法表达的约束，不复述代码行为。</p>
+    <p>现有范例：<code>park_ref.rs</code>（为何不使用 <code>Option&lt;u64&gt;</code>）、<code>deletion.rs</code>（为何采用清单而非逐表硬编码、处置方式的选取标准）、<code>salary_finance.rs</code>（为何新建关联表而非在工资表增加列）。</p>
+    <blockquote><strong>衡量标准</strong>：当后续维护者试图「简化」某个看似迂回的设计时，模块文档应当足以说明该设计存在的原因，使其在充分知情后再做决定。</blockquote>
+  </section>
+
+  <section id="s3-8">
+    <div class="sec-head"><span class="sec-no">3.8</span><h3>纯函数标记宏 <code>#[pure]</code></h3></div>
+    <div class="def"><span class="term">定义</span>：<code>#[pure_function::pure]</code> 是本仓库自制的属性宏（Attribute Macro，一种在编译期检查或改写被标注代码的 Rust 元编程机制），实现于 workspace 成员 <code>pure/</code>（仓库根）（crate 名 <code>pure_function</code>）。将其标注在函数上，编译器即检查该函数的签名与函数体中是否出现「副作用入口」标识符，一经出现，就在违规标识符的精确位置产生编译错误。§2.2 的分层判据由此从人工纪律升级为编译期保证。</div>
+    <p><strong>原理</strong>。本系统两端的副作用都采用能力传递风格（Capability-Passing Style）：副作用能力只能经参数或调用约定获得，不存在全局句柄。</p>
+    <ul>
+      <li><strong>服务端（SpacetimeDB 模块）</strong>：副作用只有一扇门 <code>ctx</code>。数据库、时钟、随机数均须经由 <code>ReducerContext</code> / <code>ViewContext</code> 获得（§1.9、§1.12）。</li>
+      <li><strong>前端（Dioxus）</strong>：副作用的门是 Hook（<code>use_*</code> 系列函数）、响应式状态 <code>Signal</code>、异步任务 <code>spawn</code> 与浏览器 API（<code>web_sys</code> / <code>js_sys</code>）。页面 <code>model.rs</code> 层的函数不接触这些门，才能脱离组件树独立测试。</li>
+    </ul>
+    <p>因此「签名与函数体不出现这些门」在本代码库内几乎等价于纯函数。宏对被标注函数的整个 token 流做递归扫描，嵌套在 <code>format!</code> 等宏调用内部的标识符同样会被扫到。</p>
+    <p><strong>禁用清单</strong>（按类别归纳；完整清单与各项理由见 <code>pure/src/lib.rs</code>）：</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>类别</th><th>标识符</th><th>适用端</th></tr></thead>
+      <tbody>
+        <tr><td>上下文</td><td><code>ctx</code>、<code>ReducerContext</code>、<code>ViewContext</code>、<code>AnonymousViewContext</code>、<code>DbContext</code>、<code>LocalReadOnly</code></td><td>服务端</td></tr>
+        <tr><td>平台 API</td><td><code>spacetimedb</code></td><td>服务端</td></tr>
+        <tr><td>响应式状态</td><td><code>Signal</code>、<code>ReadOnlySignal</code>、<code>GlobalSignal</code>，以及一切以 <code>use_</code> 开头的标识符（Hook）</td><td>前端</td></tr>
+        <tr><td>外壳操作</td><td><code>spawn</code>、<code>navigator</code>、<code>dioxus</code></td><td>前端</td></tr>
+        <tr><td>浏览器与网络</td><td><code>web_sys</code>、<code>js_sys</code>、<code>wasm_bindgen</code>、<code>gloo_net</code>、<code>reqwest</code>、<code>tokio</code></td><td>前端</td></tr>
+        <tr><td>全局状态</td><td><code>static</code>（<code>&amp;'static</code> 生命周期不受影响）、<code>thread_local</code>、<code>unsafe</code></td><td>两端</td></tr>
+        <tr><td>可观测输出</td><td><code>log</code>、<code>println</code>、<code>eprintln</code>、<code>print</code>、<code>eprint</code>、<code>dbg</code></td><td>两端</td></tr>
+        <tr><td>时钟</td><td><code>SystemTime</code>、<code>Instant</code></td><td>两端</td></tr>
+      </tbody>
+    </table></div>
+    <div class="code-cap">违规时的报错 — 真实输出，定位到违规标识符所在行列</div>
+    <pre><code>error: #[pure] 违规：`ctx`——ctx 是副作用的唯一入口，纯函数不能接触它
+   --&gt; server/spacetimedb/src/reducers/hr/employee/salary.rs:125:35</code></pre>
+    <p><strong>标注范围与命名约定</strong>。宏只检查被标注的函数；哪些函数必须标注，由命名约定加完备性核对测试闭环（与 §2.9 的降级路线同一思路）：</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>端</th><th>约定</th><th>兜底测试</th></tr></thead>
+      <tbody>
+        <tr><td>服务端</td><td>名为 <code>check_*</code> / <code>normalize_*</code> 的函数必须标注；需要 <code>ctx</code> 的检查函数改名 <code>require_*</code>，需要 <code>ctx</code> 的校验构造改名 <code>validated_*</code></td><td><code>所有名为_check_或_normalize_的函数都已标记为纯函数</code>（<code>reducers/shared/validation.rs</code>）</td></tr>
+        <tr><td>前端</td><td>页面 <code>model.rs</code> 的公开函数必须标注；读时钟的函数以 <code>now_</code> / <code>today</code> 开头命名，豁免标注</td><td><code>model_rs_的公开函数都已标记为纯函数或按时钟命名</code>（<code>src/pages/mod.rs</code>）</td></tr>
+      </tbody>
+    </table></div>
+    <p>三道防线协同：命名约定（人读代码时可辨认）→ 完备性测试（漏标必失败）→ 宏检查（标了必纯）。</p>
+    <blockquote><strong>局限（如实声明）</strong>：（一）纯度不传递——宏不检查被调函数，被调纯函数依赖上述命名约定与测试覆盖；（二）经结构体字段走私 <code>ctx</code> 引用的病态写法拦不住（本仓库无此形态，靠评审）；（三）堆分配与 panic 不视为副作用，与本项目对「纯」的定义（可脱离环境单测、同输入同输出）一致。</blockquote>
+  </section>
+</div>
+
+<!-- ═══════════════ 第四章 ═══════════════ -->
+<div class="chapter" id="ch4">
+  <div class="chapter-head">
+    <div class="chapter-label">
+      <div class="chapter-num">04</div>
+      <div class="chapter-title">开发流程</div>
+    </div>
+  </div>
+
+  <section id="s4-1">
+    <div class="sec-head"><span class="sec-no">4.1</span><h3>新增业务对象的标准步骤</h3></div>
+    <p>以在某业务域新增业务对象 X 为例，标准流程共八步：</p>
+    <ol class="steps">
+      <li><b>定义数据表（tables/&lt;域&gt;/…/x.rs）</b>自增主键；租户归属列 <code>customer_id</code>；审计时间 <code>created_at</code>、<code>updated_at</code>；业务对象增加软删除标记 <code>is_deleted</code>；声明所需索引（至少含按 <code>customer_id</code> 的索引；如关联园区，<code>park_id</code> 列类型为 <code>u64</code> 并按需建立索引）。依据 §1.13：索引可事后增删，但列的修改与删除不可迁移，列设计必须一次定稿。</li>
+      <li><b>注册模块（所在 mod.rs）</b><code>#[path = "x.rs"] mod x_table;</code> 与 <code>pub use x_table::*;</code>。<code>mod</code> 名不得与表访问器同名（§2.6 第 6 条）。</li>
+      <li><b>登记园区关联</b>若表携带 <code>park_id</code> 列，在 <code>reducers/rental/park/deletion.rs</code> 的 <code>ParkChild</code> 枚举中新增变体，并依编译错误补齐三处 <code>match</code>。若遗漏此步，测试 <code>所有挂园区的表都已登记</code> 将失败并指明缺失的表名。</li>
+      <li><b>实现校验核心</b>智能构造器 <code>validated_x(...) -&gt; Result&lt;X, String&gt;</code> 及其调用的 <code>check_*</code> 纯函数。业务规则仅在此实现一次。</li>
+      <li><b>实现 Reducer 外壳（reducers/&lt;域&gt;/…）</b>门卫（<code>AdminContext::require</code> 或相应 <code>require_*</code>）→ 校验 → 写入。须与 X 同时变更的关联行写入同一 Reducer（§2.7）。</li>
+      <li><b>实现 View（views/&lt;域&gt;/…）</b><code>my_xs</code>，遵循四步骨架——获取 <code>current_read_scope</code> → 索引查找 → 谓词过滤（<code>is_deleted</code> 与 <code>allows_park</code>）→ 稳定排序（§2.3）。</li>
+      <li><b>测试与构建</b>为第 4 步的纯函数编写中文命名的正反用例；执行 <code>cargo test --manifest-path server/spacetimedb/Cargo.toml</code> 与 <code>spacetime build --module-path server/spacetimedb</code>。</li>
+      <li><b>生成绑定</b>执行 <code>spacetime generate</code>（命令见 README 第九节），确认生成产物的变更仅为新增或修改对应类型。</li>
+    </ol>
+  </section>
+
+  <section id="s4-2">
+    <div class="sec-head"><span class="sec-no">4.2</span><h3>提交前检查清单</h3></div>
+    <p>提交代码前逐项确认：</p>
+    <ul class="checklist">
+      <li>业务规则是否全部位于纯函数中，且均有中文命名的测试用例；</li>
+      <li>是否引入了新的跨域写入；若是，是否满足 §2.4 的审查要求并已登记；</li>
+      <li>错误文案是否面向最终用户、是否为拦截类错误指明了出路（§3.2）；</li>
+      <li>是否出现了 <code>_</code> 通配分支（§3.5）；</li>
+      <li>模块文档是否记载了本次的非显然设计决策（§3.7）。</li>
+    </ul>
+  </section>
+
+  <section id="s4-3">
+    <div class="sec-head"><span class="sec-no">4.3</span><h3>发布安全评估</h3></div>
+    <p>推送主分支即触发生产部署（流程见 README 第十节），因此每次提交前必须完成 Schema 影响评估：</p>
+    <ol>
+      <li>本次改动对 Schema 的影响是否属于可平滑迁移的类别（新表、新 Reducer / View / Procedure、索引增删、带默认值标注的追加列，见 §1.13）；</li>
+      <li>是否修改或删除了已存在表的列、或追加了无默认值标注的列——若是，依据 §1.13 该改动无法平滑发布，方案必须重新设计；</li>
+      <li>CI 变量 <code>YIZU_SPACETIMEDB_DELETE_DATA</code> 是否保持 <code>false</code>（确认命令：<code>gh variable list | grep DELETE_DATA</code>）；</li>
+      <li>部署完成后按 README 第十节执行核对：CI 状态、模块日志、生产数据抽查、前端可用性。</li>
+    </ol>
+  </section>
+</div>
+
+</main>
+
+<footer>
+  <div class="container foot-grid">
+    <div><b>云园慧控服务端架构说明书</b> — 作者：周茂森</div>
+    <div>SpacetimeDB 2.6.1 · Rust 2024 Edition · 修订于 2026-08</div>
+    <div>配套文档：README.md / AGENTS.md</div>
+  </div>
+</footer>
+
+</body>
+</html>

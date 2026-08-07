@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- 概念十八：仿小篆「云」· 无底板单色，用较简的回转写法 -->
+  <!-- 传统色：靛蓝 #16324f -->
+  <g id="icon">
+    <g id="glyph-yun" transform="translate(256 256) scale(1.35) translate(-256 -270)"
+       fill="none" stroke="#16324f" stroke-width="22"
+       stroke-linecap="round" stroke-linejoin="round">
+      <path id="heng-1" d="M148 140H364"/>
+      <path id="heng-2" d="M176 200H336"/>
+      <path id="huizhuan" d="M196 262c-14 100 46 162 116 124 39-21 33-72-6-86-25-9-45 12-37 33"/>
+    </g>
+  </g>
+</svg>

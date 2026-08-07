@@ -1,0 +1,22 @@
+[package]
+name = "onvif-discover"
+version = "0.1.0"
+edition = "2021"
+description = "局域网 ONVIF 摄像头发现与 RTSP 地址探测，装机现场用"
+
+# 自成一个工作区，与主仓库彻底解耦：这个 exe 要单独编译、单独拷到客户机器上，
+# 不该跟着主构建走，也不该把 `if-addrs` 这类依赖带进主程序的依赖树。
+[workspace]
+
+[dependencies]
+# 依赖刻意压到最少：这个 exe 要拷到客户的 Windows 电脑上跑，
+# 每多一个依赖就多一分「在别人机器上跑不起来」的可能。
+# 三个都是纯 Rust、静态链接进 exe，不引入任何 DLL。
+base64 = "0.22"
+sha1 = "0.10"
+if-addrs = "0.13"
+
+[profile.release]
+opt-level = "z"
+lto = true
+strip = true

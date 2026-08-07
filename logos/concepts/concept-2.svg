@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- 概念二：云端管控，云内负形为上升数据柱 -->
+  <!-- 传统色：玄色 #16181a / 藤黄 #e8b73a -->
+  <g id="icon">
+    <rect id="plate" width="512" height="512" rx="112" fill="#16181a"/>
+    <g id="cloud" fill="#e8b73a">
+      <circle cx="190" cy="250" r="58"/>
+      <circle cx="256" cy="214" r="78"/>
+      <circle cx="326" cy="252" r="56"/>
+      <rect x="190" y="250" width="136" height="58"/>
+    </g>
+    <g id="bars" fill="#16181a">
+      <rect x="196" y="236" width="34" height="48" rx="12"/>
+      <rect x="239" y="212" width="34" height="72" rx="12"/>
+      <rect x="282" y="188" width="34" height="96" rx="12"/>
+    </g>
+  </g>
+</svg>

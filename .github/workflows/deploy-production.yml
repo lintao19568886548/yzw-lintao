@@ -1,0 +1,226 @@
+name: Deploy to yz.furong.org
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-yz-furong-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  YIZU_PUBLIC_APP_ORIGIN: ${{ vars.YIZU_PUBLIC_APP_ORIGIN || 'https://yz.furong.org' }}
+  YIZU_SPACETIMEDB_URI: https://yz.furong.org
+  YIZU_SPACETIMEDB_SERVER_URL: ${{ vars.YIZU_SPACETIMEDB_SERVER_URL || 'http://127.0.0.1:3000' }}
+  YIZU_SPACETIMEDB_DATABASE: ${{ vars.YIZU_SPACETIMEDB_DATABASE || 'yizu-server-yz18m' }}
+
+jobs:
+  build:
+    name: Bundle Dioxus + build SpacetimeDB
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            .
+
+      - name: Install Dioxus CLI
+        run: |
+          if ! command -v dx >/dev/null 2>&1; then
+            curl -fsSL https://dioxuslabs.com/install.sh | bash
+            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          fi
+
+      - name: Install SpacetimeDB CLI 2.6.1
+        run: |
+          curl -sSf https://install.spacetimedb.com | sh -s -- --yes
+          "$HOME/.local/bin/spacetime" version install 2.6.1
+          "$HOME/.local/bin/spacetime" version use 2.6.1
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Validate production endpoints
+        run: |
+          set -euo pipefail
+          for name in \
+            YIZU_PUBLIC_APP_ORIGIN \
+            YIZU_SPACETIMEDB_URI \
+            YIZU_SPACETIMEDB_SERVER_URL \
+            YIZU_SPACETIMEDB_DATABASE
+          do
+            if [ -z "${!name}" ]; then
+              echo "::error::${name} must not be empty"
+              exit 1
+            fi
+          done
+
+      - name: Bundle Dioxus fullstack release
+        run: |
+          set -euo pipefail
+          dx bundle --platform web --release
+
+      - name: Build SpacetimeDB module (WASM)
+        run: |
+          set -euo pipefail
+          spacetime build --module-path server/spacetimedb
+
+      - name: Create deployment payload
+        run: |
+          set -euo pipefail
+          mkdir -p deploy_payload/web deploy_payload/spacetime deploy_payload/nginx
+          test -x target/dx/parkwise/release/web/server
+          test -f target/wasm32-unknown-unknown/release/parkwise_server.wasm
+          cp -R target/dx/parkwise/release/web/. deploy_payload/web/
+          cp target/wasm32-unknown-unknown/release/parkwise_server.wasm deploy_payload/spacetime/parkwise_server.wasm
+          cp deploy/systemd/yizu-app.service deploy_payload/yizu-app.service
+          cp deploy/nginx/yizu-furong.org.conf deploy_payload/yizu-furong.org.conf
+          cp deploy/scripts/remote_deploy.sh deploy_payload/remote_deploy.sh
+          tar -czf yizu-deploy.tar.gz -C deploy_payload .
+
+      - name: Upload deployment package
+        uses: actions/upload-artifact@v4
+        with:
+          name: yizu-deploy-package
+          path: yizu-deploy.tar.gz
+          retention-days: 3
+
+  deploy:
+    name: Publish Dioxus + SpacetimeDB
+    runs-on: ubuntu-latest
+    needs: build
+    environment: production
+    timeout-minutes: 20
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST || vars.DEPLOY_HOST || '64.110.114.8' }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER || vars.DEPLOY_USER || 'ubuntu' }}
+      DEPLOY_SSH_PORT: ${{ secrets.DEPLOY_SSH_PORT || vars.DEPLOY_SSH_PORT || '22' }}
+    steps:
+      - name: Download deployment package
+        uses: actions/download-artifact@v4
+        with:
+          name: yizu-deploy-package
+
+      - name: Prepare SSH key
+        run: |
+          if [ -z "${{ secrets.DEPLOY_SSH_KEY }}" ]; then
+            echo "::error::Missing DEPLOY_SSH_KEY secret. 请在仓库 Secrets 中配置 SSH 私钥。"
+            exit 1
+          fi
+          if [ -z "${{ env.DEPLOY_HOST }}" ]; then
+            echo "::error::Missing DEPLOY_HOST. 请在 Secrets 或 Variables 中设置 64.110.114.8。"
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p "${{ env.DEPLOY_SSH_PORT }}" "${{ env.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Sync package to remote host
+        run: |
+          scp -P "${{ env.DEPLOY_SSH_PORT }}" yizu-deploy.tar.gz "${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }}:/tmp/yizu-deploy.tar.gz"
+
+      - name: Generate runtime env
+        run: |
+          cat > /tmp/yizu-runtime.env <<EOF
+          # Cloudflare R2 配置
+          R2_ACCESS_KEY_ID=${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT_URL=${{ secrets.R2_ENDPOINT_URL }}
+          R2_BUCKET_NAME=${{ secrets.R2_BUCKET_NAME }}
+          R2_PUBLIC_BASE_URL=${{ secrets.R2_PUBLIC_BASE_URL }}
+
+          YIZU_SPACETIMEDB_URI=${YIZU_SPACETIMEDB_URI}
+          YIZU_SPACETIMEDB_SERVER_URL=${YIZU_SPACETIMEDB_SERVER_URL}
+          YIZU_SPACETIMEDB_DATABASE=${YIZU_SPACETIMEDB_DATABASE}
+          YIZU_PUBLIC_APP_ORIGIN=${YIZU_PUBLIC_APP_ORIGIN}
+
+          YIZU_YMSINO_BASE_URL=${{ vars.YIZU_YMSINO_BASE_URL }}
+          YIZU_YMSINO_USERNAME=${{ secrets.YIZU_YMSINO_USERNAME }}
+          YIZU_YMSINO_PASSWORD=${{ secrets.YIZU_YMSINO_PASSWORD }}
+          YIZU_YMSINO_ORG_ID=${{ vars.YIZU_YMSINO_ORG_ID }}
+          YIZU_YMSINO_PT_ID=${{ vars.YIZU_YMSINO_PT_ID }}
+          YIZU_YMSINO_TIMEOUT_SECONDS=${{ vars.YIZU_YMSINO_TIMEOUT_SECONDS }}
+          YIZU_YMSINO_LOGIN_TIMEOUT_SECONDS=${{ vars.YIZU_YMSINO_LOGIN_TIMEOUT_SECONDS || 30 }}
+
+          YIZU_HEZHONG_BASE_URL=${{ vars.YIZU_HEZHONG_BASE_URL }}
+          YIZU_HEZHONG_USERNAME=${{ secrets.YIZU_HEZHONG_USERNAME }}
+          YIZU_HEZHONG_LOGIN_KEY=${{ secrets.YIZU_HEZHONG_LOGIN_KEY }}
+          YIZU_HEZHONG_PROJECT_CODE=${{ vars.YIZU_HEZHONG_PROJECT_CODE }}
+          YIZU_HEZHONG_ELECTRIC_COM_TYPE=${{ vars.YIZU_HEZHONG_ELECTRIC_COM_TYPE }}
+          YIZU_HEZHONG_TIMEOUT_SECONDS=${{ vars.YIZU_HEZHONG_TIMEOUT_SECONDS }}
+          YIZU_HEZHONG_CONNECT_TIMEOUT_SECONDS=${{ vars.YIZU_HEZHONG_CONNECT_TIMEOUT_SECONDS }}
+          YIZU_HEZHONG_RETRY_ATTEMPTS=${{ vars.YIZU_HEZHONG_RETRY_ATTEMPTS }}
+          YIZU_HEZHONG_RETRY_DELAY_MS=${{ vars.YIZU_HEZHONG_RETRY_DELAY_MS }}
+          YIZU_HEZHONG_OPERATION_TIMEOUT_SECONDS=${{ vars.YIZU_HEZHONG_OPERATION_TIMEOUT_SECONDS }}
+          YIZU_HEZHONG_CACHE_SECONDS=${{ vars.YIZU_HEZHONG_CACHE_SECONDS }}
+
+          ALIYUN_BAILIAN_KEY=${{ secrets.ALIYUN_BAILIAN_KEY }}
+          YIZU_AMOUNT_BILL_AI_MODEL=${{ vars.YIZU_AMOUNT_BILL_AI_MODEL }}
+          YIZU_CONTRACT_AI_MODEL=${{ vars.YIZU_CONTRACT_AI_MODEL }}
+          EOF
+          scp -P "${{ env.DEPLOY_SSH_PORT }}" /tmp/yizu-runtime.env "${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }}:/tmp/yizu-runtime.env"
+
+      - name: Sync and run remote deployment
+        run: |
+          ssh -p "${{ env.DEPLOY_SSH_PORT }}" "${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }}" <<EOF
+          set -euo pipefail
+          export YIZU_APP_ROOT="/home/ubuntu/yizu"
+          export YIZU_RELEASE_TARBALL="/tmp/yizu-deploy.tar.gz"
+          export YIZU_RUNTIME_ENV="/tmp/yizu-runtime.env"
+          export YIZU_SERVER_NAME="yizu-app"
+          export YIZU_SERVER_PORT="8081"
+          export YIZU_SERVER_IP="127.0.0.1"
+          export YIZU_SPACETIMEDB_PUBLISH_CMD="${{ secrets.YIZU_SPACETIMEDB_PUBLISH_CMD || '' }}"
+          export YIZU_SPACETIMEDB_DB_NAME="${YIZU_SPACETIMEDB_DATABASE}"
+          export YIZU_SPACETIMEDB_SERVER="${{ vars.YIZU_SPACETIMEDB_SERVER || 'local' }}"
+          export YIZU_SPACETIMEDB_PUBLISH_YES="${{ vars.YIZU_SPACETIMEDB_PUBLISH_YES || 'all' }}"
+          export YIZU_SPACETIMEDB_FORCE_PUBLISH="true"
+          # 表结构重建开关：SpacetimeDB 拒绝改列和删列，遇到这类变更时临时置为
+          # true 发布一次，紧接着改回 false。留在 true 上的话，之后每一次普通
+          # 部署都会把生产数据清空。
+          export YIZU_SPACETIMEDB_DELETE_DATA="${{ vars.YIZU_SPACETIMEDB_DELETE_DATA || 'false' }}"
+          export YIZU_ENABLE_NGINX_CONF="${{ vars.YIZU_ENABLE_NGINX_CONF || 'true' }}"
+          export YIZU_NGINX_CONF_NAME="yizu-furong.org.conf"
+
+          mkdir -p /tmp/yizu-deploy
+          if [ ! -f "/tmp/yizu-deploy.tar.gz" ]; then
+            echo "::error::Missing deploy package /tmp/yizu-deploy.tar.gz on remote host."
+            ls -l /tmp || true
+            exit 1
+          fi
+          tar -xzf /tmp/yizu-deploy.tar.gz -C /tmp/yizu-deploy
+          chmod +x /tmp/yizu-deploy/remote_deploy.sh
+          bash /tmp/yizu-deploy/remote_deploy.sh
+          EOF
+
+      - name: Verify production services
+        run: |
+          ssh -p "${{ env.DEPLOY_SSH_PORT }}" "${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }}" <<'EOF'
+          set -euo pipefail
+          sudo systemctl is-active --quiet hysteria-server.service
+          sudo systemctl is-active --quiet nginx.service
+          sudo systemctl is-active --quiet yizu-app.service
+          sudo systemctl is-active --quiet spacetimedb.service
+          curl --fail --silent --show-error http://127.0.0.1:8081/ >/dev/null
+          sudo -u spacetimedb /stdb/spacetime --root-dir=/stdb server ping local
+          EOF
+
+          curl --fail --silent --show-error --max-time 15 https://yz.furong.org/ >/dev/null
+          curl --fail --silent --show-error --max-time 15 https://yz.furong.org/v1/ping >/dev/null
+
+      - name: Cleanup local temp files
+        if: always()
+        run: |
+          rm -f /tmp/yizu-runtime.env

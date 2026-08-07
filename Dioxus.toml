@@ -1,0 +1,22 @@
+[application]
+out_dir = "dist"
+
+[web.app]
+
+# HTML 页面标题
+title = "易租云 · 园区运营工作台"
+
+# Web 平台需要包含的资源
+[web.resource]
+
+# 额外的 CSS 样式文件
+style = []
+
+# 额外的 JavaScript 文件
+script = []
+
+[web.resource.dev]
+
+# JavaScript 开发脚本
+# 仅在开发服务器运行时加载
+script = []

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- 概念五：抽象几何，无底板。方=地块/园区，圆=云端覆盖，交叠处为管控域 -->
+  <!-- 传统色：石绿 #2c7a6b / 粉青 #9fc4b4 / 松绿 #1c5449 -->
+  <defs>
+    <clipPath id="plotClip">
+      <rect x="64" y="176" width="264" height="264" rx="64"/>
+    </clipPath>
+  </defs>
+  <g id="icon">
+    <rect id="plot" x="64" y="176" width="264" height="264" rx="64" fill="#2c7a6b"/>
+    <circle id="cloud" cx="336" cy="200" r="128" fill="#9fc4b4"/>
+    <circle id="overlap" cx="336" cy="200" r="128" fill="#1c5449" clip-path="url(#plotClip)"/>
+  </g>
+</svg>

@@ -1,0 +1,1256 @@
+/* 应用层：组件库覆盖不到的自有构件。
+ *
+ * 只放三类东西：全局外壳（顶栏、内容区）、组件库没有对应物的可视化
+ * （柱状图、图片画廊），以及移动端手势区。业务页面的样式一律不放这里，
+ * 页面应当用 10-layout.css 的通用类拼装。
+ */
+
+/* 内容区：组件库的 SidebarInset 会撑满视口高度且 wrapper 上是
+ * overflow: hidden，滚动容器必须由内容区自己提供，否则页面无法上下滚动。 */
+.workspace-content {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* 顶栏 */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  height: 3.25rem;
+  padding: 0 1rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.topbar-leading,
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.workspace-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.workspace-heading strong {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.eyebrow {
+  color: var(--text-faint);
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.icon-button,
+.notification-button {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: none;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.icon-button:hover,
+.notification-button:hover { background: var(--bg-hover); }
+
+.notification-button { position: relative; }
+
+.notification-dot {
+  position: absolute;
+  top: 0.375rem;
+  right: 0.375rem;
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 50%;
+  background: var(--danger);
+}
+
+.command-search {
+  display: flex;
+  flex-shrink: 1;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 320px;
+  flex: 1;
+  padding: 0.3125rem 0.625rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+}
+
+.command-search input {
+  min-width: 0;
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  outline: none;
+}
+
+.command-search kbd {
+  padding: 0.0625rem 0.25rem;
+  border-radius: 3px;
+  background: var(--bg-hover);
+  font-family: inherit;
+  font-size: 0.6875rem;
+}
+
+.user-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.125rem 0.25rem;
+  border: none;
+  border-radius: var(--radius);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.user-chip:hover { background: var(--bg-hover); }
+
+.user-avatar {
+  display: grid;
+  width: 1.75rem;
+  height: 1.75rem;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: var(--radius);
+  background: var(--bg-hover);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.user-chip-copy { display: grid; gap: 0; min-width: 0; line-height: 1.3; }
+.user-chip-copy strong { font-size: 0.8125rem; font-weight: 600; }
+.user-chip-copy small { color: var(--text-muted); font-size: 0.6875rem; }
+
+/* 侧边栏品牌区 */
+.brand { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; }
+.brand-copy { display: grid; gap: 0.125rem; min-width: 0; }
+.brand strong { font-size: 0.9375rem; font-weight: 700; }
+.brand small { color: var(--text-muted); font-size: 0.75rem; }
+/* 文字过长时截断而不是把印章挤走 */
+.brand-copy strong, .brand-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-foot-note {
+  padding: 0 0.5rem 0.375rem;
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+}
+
+/* 收起成图标栏时，文字块没有组件库的隐藏规则兜底，会被压成竖排；
+ * 品牌印章本身是方形，正好留作图标栏的标识，只藏文字不藏整块。
+ * 退出按钮改用 SidebarMenuButton 后由组件库自动图标化，无需在此处理。 */
+[data-slot="sidebar"][data-collapsible="icon"][data-state="collapsed"] .brand-copy,
+[data-slot="sidebar"][data-collapsible="icon"][data-state="collapsed"] .sidebar-foot-note {
+  display: none;
+}
+
+[data-slot="sidebar"][data-collapsible="icon"][data-state="collapsed"] .brand {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+/* 图标栏只有 3rem 宽，展开态的尺寸会顶满两侧 */
+[data-slot="sidebar"][data-collapsible="icon"][data-state="collapsed"] .brand-logo.is-small {
+  width: 32px;
+  height: 32px;
+}
+
+/* 状态指示点 */
+.live-pulse {
+  display: inline-block;
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 50%;
+  background: currentcolor;
+}
+
+/* 模块加载提示 */
+.module-load-status {
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--line);
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+}
+
+.module-load-status.is-error { color: var(--danger); }
+
+/* 移动端左缘手势区 */
+.sidebar-edge-swipe-zone {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 20;
+  width: 20px;
+  height: 100%;
+}
+
+@media (min-width: 901px) {
+  .sidebar-edge-swipe-zone { display: none; }
+}
+
+/* 回款柱状图：组件库没有图表，保留自绘 */
+.dash-chart {
+  display: grid;
+  align-items: stretch;
+  gap: 1rem;
+  min-height: 220px;
+  flex: 1;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+}
+
+.dash-chart-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: center;
+  min-height: 0;
+}
+
+/* 柱区吃掉列里除标签外的全部高度，柱子才有伸展空间 */
+.dash-chart-bars {
+  display: flex;
+  flex: 1;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0.25rem;
+  width: 100%;
+  min-height: 0;
+}
+
+.dash-chart-bar {
+  width: 28%;
+  /* 高度由标记通过 --bar-height 传入，忘记消费就会塌成一条线 */
+  height: var(--bar-height, 2px);
+  min-height: 2px;
+  border-radius: 2px 2px 0 0;
+}
+
+.dash-chart-bar.is-receivable { background: var(--line); }
+.dash-chart-bar.is-received { background: var(--text); }
+.dash-chart-label { color: var(--text-muted); font-size: 0.6875rem; }
+
+/* 图片编辑器：缩略图网格。
+ *
+ * 这套类名在 CSS 重建时被删掉了，一直没补——缩略图因此以原图尺寸铺开，
+ * 一张手机照片就能占满整屏。 */
+.business-image-field {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.business-image-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.business-image-toolbar strong { margin-right: 0.5rem; }
+.business-image-toolbar small { color: var(--text-muted); font-size: 0.75rem; }
+
+.business-image-upload {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.75rem;
+  height: var(--control-h);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.business-image-upload:hover { background: var(--bg-hover); }
+
+/* 原生文件选择器的按钮样式各系统不一，且带一段「未选择文件」文案，
+ * 藏掉它，由外层 label 充当按钮。 */
+.business-image-upload input { display: none; }
+
+.business-image-empty {
+  margin: 0;
+  padding: 1rem;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  text-align: center;
+}
+
+.business-image-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.75rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.business-image-list > * {
+  display: grid;
+  gap: 0.375rem;
+  padding: 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+}
+
+/* 待移除的条目减淡，但仍留在列表里——移除要到保存时才真正生效 */
+.business-image-list > .is-removed { opacity: 0.45; }
+
+/* 文件名一行截断，长文件名不该把磁贴撑宽 */
+.business-image-list > * > span {
+  overflow: hidden;
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.business-image-list small { color: var(--text-muted); font-size: 0.6875rem; }
+.business-image-list .is-removing { color: var(--danger); }
+
+.business-image-list img {
+  width: 100%;
+  border-radius: var(--radius);
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+
+.business-image-placeholder {
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius);
+  background: var(--bg-subtle);
+  color: var(--text-faint);
+  font-size: 0.75rem;
+  aspect-ratio: 4 / 3;
+}
+
+.business-image-meta {
+  display: grid;
+  gap: 0.125rem;
+  min-width: 0;
+  font-size: 0.75rem;
+}
+
+.business-image-meta span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.business-image-meta small { color: var(--danger); }
+
+.business-image-list button {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.75rem;
+}
+
+.business-image-list button:hover { background: var(--bg-hover); color: var(--text); }
+
+.business-image-count { color: var(--text-muted); font-size: 0.75rem; }
+
+/* 园区图片画廊。
+ *
+ * 必须限宽：宽屏下不设上限时，一张楼层配图会按 16/9 铺满一千九百多像素，
+ * 把同一折叠块里的面积、租金这些正文全部挤到首屏之外。 */
+.park-detail-gallery {
+  position: relative;
+  overflow: hidden;
+  /* 图片是绝对定位的，容器没有内容撑宽。放进 grid 的 auto 轨道时轨道会
+   * 收缩到 0，配上 aspect-ratio 高度也变成 0，整个画廊就消失了。 */
+  width: 100%;
+  max-width: 480px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-subtle);
+  aspect-ratio: 4 / 3;
+}
+
+/* 楼层、宿舍这类嵌在折叠块里的配图是辅助信息，比园区主图再收一档 */
+.park-detail-gallery.is-compact {
+  max-width: 320px;
+  aspect-ratio: 16 / 9;
+}
+
+.park-detail-gallery__image {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: zoom-in;
+}
+
+/* 整组图片重叠堆放，只有当前那张可见。都已经解码好，切换是瞬时的。 */
+.park-detail-gallery__image img {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  inset: 0;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.park-detail-gallery__image img.is-current { opacity: 1; }
+
+.park-detail-gallery__arrow {
+  position: absolute;
+  top: 50%;
+  width: 1.75rem;
+  height: 1.75rem;
+  transform: translateY(-50%);
+  border: none;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 88%);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.park-detail-gallery__arrow.is-prev { left: 0.5rem; }
+.park-detail-gallery__arrow.is-next { right: 0.5rem; }
+
+.park-detail-gallery__dots {
+  position: absolute;
+  bottom: 0.5rem;
+  left: 50%;
+  display: flex;
+  gap: 0.25rem;
+  transform: translateX(-50%);
+}
+
+.park-detail-gallery__dots button {
+  width: 0.375rem;
+  height: 0.375rem;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 60%);
+  cursor: pointer;
+}
+
+.park-detail-gallery__dots button.is-active { background: #fff; }
+
+.park-detail-gallery__placeholder {
+  display: grid;
+  height: 100%;
+  align-content: center;
+  justify-items: center;
+  gap: 0.25rem;
+  color: var(--text-faint);
+}
+
+.park-image-preview {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+  background: rgb(0 0 0 / 72%);
+}
+
+.park-image-preview img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: var(--radius-lg);
+}
+
+.park-image-preview button {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 90%);
+  cursor: pointer;
+}
+
+@media (max-width: 900px) {
+  .dash-chart { height: 170px; gap: 0.5rem; }
+  .command-search { display: none; }
+  .topbar { padding: 0 0.75rem; }
+}
+
+/* 登录页：居中窄栏，与工作台共用同一套令牌 */
+.auth {
+  display: grid;
+  min-height: 100dvh;
+  place-items: center;
+  padding: 2rem 1.25rem;
+  background: var(--bg-subtle);
+}
+
+.auth-card {
+  display: grid;
+  gap: 1.5rem;
+  width: 100%;
+  max-width: 380px;
+  padding: 2rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+}
+
+.auth-brand { display: flex; align-items: center; gap: 0.75rem; }
+.auth-brand .brand-copy { display: grid; gap: 0.25rem; }
+.auth-brand strong { font-size: 1.25rem; font-weight: 700; }
+.auth-brand small { color: var(--text-muted); }
+
+.auth-form { display: grid; gap: 1rem; }
+
+.auth-tabs {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.1875rem;
+  border-radius: var(--radius);
+  background: var(--bg-subtle);
+}
+
+.auth-tab {
+  flex: 1;
+  padding: 0.4375rem 0.5rem;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.auth-tab.is-active {
+  background: var(--bg);
+  color: var(--text);
+  font-weight: 500;
+}
+
+.auth-code-row {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.auth-remember {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+/* 复选框跟随文字色，避免系统蓝突兀 */
+.auth-remember input { accent-color: var(--text); }
+
+/* 浏览器自动填充会强行套上蓝底，只能用 inset 阴影盖掉。
+ *
+ * 但组件库的输入框边框本身就是 inset 阴影画的，只写一条填充阴影会把边框
+ * 一起抹掉——被自动填充的密码框会变成没有框。两条阴影都要写，边框在前。 */
+.auth-card input:-webkit-autofill,
+.auth-card input:-webkit-autofill:hover,
+.auth-card input:-webkit-autofill:focus {
+  box-shadow: inset 0 0 0 1px var(--line), inset 0 0 0 1000px var(--bg);
+  -webkit-text-fill-color: var(--text);
+  transition: background-color 100000s ease 0s;
+}
+
+.auth-foot {
+  display: grid;
+  gap: 0.625rem;
+  justify-items: center;
+  padding-top: 0.25rem;
+  border-top: 1px solid var(--line);
+  color: var(--text-faint);
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+/* 连接状态是辅助信息，不该在登录卡里抢主按钮的注意力 */
+.connectivity-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.connectivity-status strong { font-weight: 400; }
+
+.connectivity-status small { display: none; }
+
+.connectivity-dot {
+  width: 0.375rem;
+  height: 0.375rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--text-faint);
+}
+
+.connectivity-status.is-online .connectivity-dot { background: #0f9d58; }
+.connectivity-status.is-pending .connectivity-dot { background: #d9a13b; }
+.connectivity-status.is-offline .connectivity-dot { background: var(--danger); }
+
+.connectivity-recheck {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.connectivity-recheck:hover { color: var(--text); }
+
+/* 模块总览的数据流向漏斗：单一色相按阶段宽度递减表达同一条数据链路，
+   不给每个阶段换色——这是一条流，不是互不相关的分类。 */
+.data-flow {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-block: 0.25rem;
+}
+
+.data-flow-stage {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  min-width: 9rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+  text-decoration: none;
+  color: inherit;
+}
+
+a.data-flow-stage:hover { border-color: var(--accent); }
+
+.data-flow-stage-label { font-size: 0.8125rem; color: var(--text-muted); }
+
+.data-flow-stage-count {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.data-flow-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--primary-color-4);
+  overflow: hidden;
+}
+
+.data-flow-bar > span {
+  display: block;
+  height: 100%;
+  min-width: 6px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.data-flow-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 1.5rem;
+  color: var(--text-faint);
+}
+
+/* 匹配关系不是外键，用不同的图标形状表达"弱关联"——不只是换个颜色，
+   色觉障碍的读者也要能分辨这是两种不同的连接。 */
+.data-flow-arrow.is-inferred { opacity: 0.7; }
+
+.data-flow-group + .data-flow-group { margin-top: 1.25rem; }
+
+.data-flow-group-title {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+
+.data-flow-split { display: flex; gap: 0.375rem; flex-wrap: wrap; }
+
+.data-flow-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3125rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  background: var(--primary-color-4);
+}
+
+.data-flow-pill::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-faint);
+}
+
+.data-flow-pill.is-ok { color: var(--ok); }
+.data-flow-pill.is-ok::before { background: var(--ok); }
+
+@media (max-width: 720px) {
+  .data-flow { flex-direction: column; }
+  .data-flow-arrow { width: auto; height: 1rem; transform: rotate(90deg); }
+}
+
+/* 数据地图：SVG 关系图。颜色全部走 CSS 变量，内联 SVG 继承文档主题。 */
+.data-map-scroll { overflow-x: auto; }
+.data-map-scroll svg { min-width: 1240px; display: block; }
+
+.map-edge { stroke: var(--text-faint); stroke-width: 1.5; fill: none; }
+.map-edge.is-optional { stroke-dasharray: 6 4; }
+.map-edge.is-soft { stroke: var(--accent); stroke-dasharray: 2 5; stroke-linecap: round; opacity: 0.85; }
+.map-edge-label { fill: var(--text-muted); font-size: 11px; }
+
+.map-node-box { fill: var(--bg); stroke: var(--line); stroke-width: 1.5; }
+.map-node.is-hub .map-node-box { stroke: var(--accent); stroke-width: 2; }
+.map-node.is-link { cursor: pointer; }
+.map-node.is-link:hover .map-node-box { stroke: var(--accent); }
+.map-node-label { fill: var(--text-muted); font-size: 12px; }
+.map-node-count { fill: var(--text); font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.map-node-note { fill: var(--text-muted); font-size: 11px; }
+.map-orphan-box { fill: var(--danger); }
+.map-orphan-text { fill: #fff; font-size: 11px; }
+
+.map-island { fill: none; stroke: var(--line); stroke-width: 1.5; stroke-dasharray: 8 6; }
+.map-island-label { fill: var(--text-faint); font-size: 12px; }
+
+.data-map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.legend-item { display: inline-flex; align-items: center; gap: 0.375rem; }
+
+.legend-line {
+  display: inline-block;
+  width: 1.75rem;
+  border-top: 2px solid var(--text-faint);
+}
+
+.legend-line.is-optional { border-top-style: dashed; }
+.legend-line.is-soft { border-top-style: dotted; border-top-color: var(--accent); }
+
+.legend-badge {
+  display: inline-block;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 999px;
+  background: var(--danger);
+}
+
+/* 合同表单的楼层选择：勾选 + 逐层面积，组件库没有对应构件 */
+.floor-picker {
+  display: grid;
+  gap: 0.375rem;
+  max-height: 16rem;
+  overflow-y: auto;
+  /* 只纵向滚。CSS 里一个轴设成 auto 之后，另一个轴的 `visible` 会被当成
+   * `auto`，于是内容稍微撑宽一点就冒出一条横向滚动条——而内容其实排得下，
+   * 真正撑宽它的是下面那个 min-width。 */
+  overflow-x: hidden;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.floor-picker-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.625rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.floor-picker-row.is-picked { border-color: var(--accent); }
+
+.floor-picker-main {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.floor-picker-main input { flex-shrink: 0; }
+
+.floor-picker-area {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  /* 定宽会在窄屏上撑破行，所以是「最多 12rem，能缩」。 */
+  flex: 0 1 12rem;
+  /* flex 子项默认收缩不到内容宽度以下，而 `<input>` 自带 `size=20`（约 11rem）
+   * 的内容宽度，比这里的可用宽度还大，整行会被顶出横向滚动条。 */
+  min-width: 0;
+}
+
+.floor-picker-area input {
+  width: 100%;
+  min-width: 0;
+}
+
+/* 「㎡」「元/度」这类单位不参与收缩，否则会被挤成一列竖排的单字。 */
+.floor-picker-area > .hint {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* 合同约定费用：一行一项，勾选后在右侧展开计费条款 */
+.fee-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.fee-row + .fee-row { margin-top: 0.5rem; }
+
+.fee-row.is-picked { border-color: var(--accent); }
+
+.fee-row-main {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 7rem;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+/* 三个条款字段（计费方式／比例／基数）并排铺开。定宽会在窄屏撑破行，
+ * 所以是「至少 9rem，能长能缩」。 */
+.fee-row-terms {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.75rem;
+  flex: 1;
+  min-width: 0;
+}
+
+/* 账单表单里「按合同带入费用」这一条：按钮在左，说明跟在后面 */
+.sheet-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+/* 台账缺数据时的补录入口。全局 `a` 是 color: inherit + 无下划线，放在
+ * 灰色提示句里会完全看不出可以点，所以这里显式给出链接外观。 */
+.hint-link {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 0.125rem;
+}
+
+.hint-link:hover {
+  opacity: 0.75;
+}
+
+/* 账单明细里的「抄表日期 + 从智能水电表带入」一行 */
+/* 抄表日期那一行：布局全部走 `.filters`，这里只补两处差异——日期字段不需要
+ * 筛选条那么宽，以及按钮下面那句「N 行已绑定设备」要跟着按钮走。 */
+.reading-fetch {
+  margin-bottom: 0.75rem;
+}
+
+.reading-fetch .field {
+  min-width: 11rem;
+}
+
+/* 按钮那一格不参与 `.filters` 的「推到行尾」，它紧跟在日期后面读起来才顺。
+ * 格子里只放按钮：再叠一行说明的话，底部对齐的就成了那句说明，按钮会被顶到
+ * 输入框上方去。 */
+.reading-fetch .field.is-action {
+  margin-inline-start: 0;
+}
+
+.reading-fetch + .hint {
+  display: block;
+  margin-top: -0.375rem;
+  margin-bottom: 0.5rem;
+}
+
+/* 合同表单的水电表报价：单一单价 / 尖峰平谷四段二选一 */
+.meter-picker-price {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.375rem;
+}
+
+/* 分时报价有四段，挤在行尾放不下：输入框自带 `size=20` 的最小宽度，四个加起来
+ * 远超剩余空间，「平」「谷」的标签和单位会被顶出可视区——看到的就是两个没有
+ * 标题的输入框。所以分时报价整块换行独占一行，再按网格铺开。 */
+.meter-picker-price.is-tiered {
+  flex: 1 1 100%;
+  align-items: stretch;
+}
+
+.meter-picker-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+/* 四段等宽 + 末尾单位。`minmax(0, 1fr)` 而不是 `1fr`：`1fr` 的下限是内容宽度，
+ * 输入框照样撑破格子。 */
+.meter-picker-tiers {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+  align-items: end;
+  gap: 0.25rem 0.5rem;
+}
+
+/* 标签在上、输入在下：四段并排时标签放左边会各占掉一截宽度，输入框只剩两三个
+ * 字符的位置。 */
+.meter-picker-tier {
+  display: grid;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.meter-picker-tier > span {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+/* `min-width: 0` 是关键：不归零就退不回默认宽度以下。 */
+.meter-picker-tier input {
+  width: 100%;
+  min-width: 0;
+}
+
+.meter-picker-tiers > .hint {
+  align-self: end;
+  /* 与输入框内的文字对齐，而不是贴着输入框底边。 */
+  padding-block-end: 0.4375rem;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .meter-picker-tiers {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .meter-picker-tiers > .hint {
+    grid-column: 1 / -1;
+    align-self: start;
+    padding-block-end: 0;
+  }
+}
+
+/* ---- 变压器台账与扫码巡检 ---- */
+
+.is-bad {
+  color: var(--danger);
+}
+
+.qr-stack {
+  align-items: center;
+  text-align: center;
+}
+
+/* 二维码底色固定为白：扫码可靠性优先，不随深色主题反色。 */
+.qr-code {
+  display: inline-block;
+  padding: 12px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.qr-code svg {
+  display: block;
+  width: 220px;
+  height: 220px;
+}
+
+.history-item {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.history-photo {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+}
+
+/* 手机巡检页：窄栏布局，桌面打开也不至于摊满全屏。 */
+.inspect-page {
+  max-width: 560px;
+  margin-inline: auto;
+}
+
+/* ---- 巡检码打印 ----
+   进入打印模式（body.qr-print-mode，由打印按钮临时挂上）时，
+   整页隐藏、只输出标签纸区域；屏幕上标签纸区域始终不可见。 */
+
+.qr-print-sheet {
+  display: none;
+}
+
+@media print {
+  body.qr-print-mode * {
+    visibility: hidden;
+  }
+
+  body.qr-print-mode .qr-print-sheet {
+    display: block;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    visibility: visible;
+    background: #fff;
+  }
+
+  body.qr-print-mode .qr-print-sheet * {
+    visibility: visible;
+  }
+}
+
+.qr-label-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+/* 标签固定黑字白底：打印可靠性优先，不随主题变色。 */
+.qr-label {
+  border: 1px dashed #999;
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+  break-inside: avoid;
+  background: #fff;
+  color: #000;
+}
+
+.qr-label svg {
+  width: 180px;
+  height: 180px;
+}
+
+.qr-label-name {
+  font-weight: 600;
+  margin-top: 8px;
+}
+
+.qr-label-meta {
+  font-size: 12px;
+  color: #333;
+  word-break: break-all;
+}
+
+/* ---- 个人中心 ---- */
+
+.sidebar-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.profile-avatar-row {
+  align-items: center;
+  gap: 16px;
+}
+
+.profile-avatar {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--line);
+}
+
+/* 无头像时的首字占位。 */
+.profile-avatar-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  font-weight: 600;
+  color: var(--text-muted, #888);
+  background: var(--bg-muted, rgba(128, 128, 128, 0.12));
+}
+
+/* 顶栏用户徽章使用真实头像时保持圆形裁切。 */
+img.user-avatar {
+  object-fit: cover;
+}
+
+/* ---- 厂房设施概览卡 ---- */
+
+.facility-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.facility-head h4 {
+  margin: 0;
+}
+
+.facility-types {
+  color: var(--text-muted, #666);
+  font-size: 13px;
+  margin: 0;
+}
+
+.facility-alert {
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.facility-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.facility-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 设备名占满剩余宽度并省略号截断，状态与日期永远贴右对齐 */
+.facility-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.facility-date {
+  color: var(--text-muted, #888);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+/* ---- 品牌标识（朱砂方印） ---- */
+
+.brand-logo {
+  display: block;
+  flex-shrink: 0;
+  border-radius: 4px;
+}
+
+.brand-logo.is-small {
+  width: 40px;
+  height: 40px;
+}
+
+.brand-logo.is-large {
+  width: 48px;
+  height: 48px;
+}
+
+/* ---- 顶栏的窄屏形态 ----
+ * 390px 宽时，顶栏原本会把「OPERATIONS DESK」「园区运营工作台」「实时连接」
+ * 「检测」「超级管理员 / Super」全都塞进一行，结果每一项都被压成竖排换行，
+ * 高度撑到三行还看不清。窄屏保留的只有导航与身份入口，装饰性文字一律让位。 */
+
+@media (max-width: 640px) {
+  .topbar {
+    height: auto;
+    min-height: 3rem;
+    gap: 0.5rem;
+    padding: 0 0.5rem;
+  }
+
+  /* 纯装饰，无信息量，第一个让位 */
+  .eyebrow { display: none; }
+
+  /* 页面标题就在顶栏正下方，这里只留一行简称，空间不够即截断 */
+  .workspace-heading strong { font-size: 0.875rem; }
+
+  /* 连接状态压成一个圆点：颜色已经表达了全部信息 */
+  .connectivity-status .stack-tight,
+  .connectivity-recheck { display: none; }
+  .connectivity-status { gap: 0; padding: 0; border: none; background: none; }
+
+  /* 用户区只留头像，点它进个人中心；姓名与角色在个人中心里看 */
+  .user-chip-copy { display: none; }
+  .user-chip { gap: 0; }
+
+  .topbar-actions { gap: 0.375rem; flex-shrink: 0; }
+  .topbar-leading { min-width: 0; flex: 1; }
+}

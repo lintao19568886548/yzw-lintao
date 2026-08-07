@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- 概念七：门阙三重檐。严格中轴对称，层层出檐，取院落门楼意 -->
+  <!-- 传统色：玄墨 #161c22 / 古铜金 #c19a4f -->
+  <g id="icon">
+    <rect id="plate" x="56" y="56" width="400" height="400" rx="12" fill="#161c22"/>
+    <g id="gate" fill="#c19a4f">
+      <rect id="eave-top" x="196" y="96" width="120" height="28"/>
+      <rect id="eave-mid" x="156" y="140" width="200" height="34"/>
+      <rect id="eave-low" x="116" y="190" width="280" height="38"/>
+      <rect id="pier-l" x="148" y="244" width="48" height="140"/>
+      <rect id="pier-r" x="316" y="244" width="48" height="140"/>
+      <rect id="base" x="104" y="384" width="304" height="30"/>
+    </g>
+  </g>
+</svg>
