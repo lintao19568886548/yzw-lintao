@@ -1,9 +1,6 @@
 name: Deploy to yz.furong.org
 
 on:
-  push:
-    branches:
-      - main
   workflow_dispatch:
 
 concurrency:
@@ -27,6 +24,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Reject destructive production paths
+        shell: pwsh
+        run: ./scripts/check-production-destructive-ops.ps1
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -145,6 +146,7 @@ jobs:
           YIZU_SPACETIMEDB_SERVER_URL=${YIZU_SPACETIMEDB_SERVER_URL}
           YIZU_SPACETIMEDB_DATABASE=${YIZU_SPACETIMEDB_DATABASE}
           YIZU_PUBLIC_APP_ORIGIN=${YIZU_PUBLIC_APP_ORIGIN}
+          YIZU_DEPLOY_ENVIRONMENT=production
 
           YIZU_YMSINO_BASE_URL=${{ vars.YIZU_YMSINO_BASE_URL }}
           YIZU_YMSINO_USERNAME=${{ secrets.YIZU_YMSINO_USERNAME }}
@@ -177,32 +179,31 @@ jobs:
           ssh -p "${{ env.DEPLOY_SSH_PORT }}" "${{ env.DEPLOY_USER }}@${{ env.DEPLOY_HOST }}" <<EOF
           set -euo pipefail
           export YIZU_APP_ROOT="/home/ubuntu/yizu"
-          export YIZU_RELEASE_TARBALL="/tmp/yizu-deploy.tar.gz"
           export YIZU_RUNTIME_ENV="/tmp/yizu-runtime.env"
+          export YIZU_DEPLOY_ENVIRONMENT="production"
           export YIZU_SERVER_NAME="yizu-app"
           export YIZU_SERVER_PORT="8081"
           export YIZU_SERVER_IP="127.0.0.1"
-          export YIZU_SPACETIMEDB_PUBLISH_CMD="${{ secrets.YIZU_SPACETIMEDB_PUBLISH_CMD || '' }}"
           export YIZU_SPACETIMEDB_DB_NAME="${YIZU_SPACETIMEDB_DATABASE}"
           export YIZU_SPACETIMEDB_SERVER="${{ vars.YIZU_SPACETIMEDB_SERVER || 'local' }}"
-          export YIZU_SPACETIMEDB_PUBLISH_YES="${{ vars.YIZU_SPACETIMEDB_PUBLISH_YES || 'all' }}"
-          export YIZU_SPACETIMEDB_FORCE_PUBLISH="true"
-          # 表结构重建开关：SpacetimeDB 拒绝改列和删列，遇到这类变更时临时置为
-          # true 发布一次，紧接着改回 false。留在 true 上的话，之后每一次普通
-          # 部署都会把生产数据清空。
-          export YIZU_SPACETIMEDB_DELETE_DATA="${{ vars.YIZU_SPACETIMEDB_DELETE_DATA || 'false' }}"
+          export YIZU_SPACETIMEDB_PUBLISH_ENABLED="true"
           export YIZU_ENABLE_NGINX_CONF="${{ vars.YIZU_ENABLE_NGINX_CONF || 'true' }}"
           export YIZU_NGINX_CONF_NAME="yizu-furong.org.conf"
 
-          mkdir -p /tmp/yizu-deploy
+          export YIZU_DEPLOY_WORK_DIR="/tmp/yizu-deploy.${{ github.run_id }}-${{ github.run_attempt }}"
+          if [ -e "\${YIZU_DEPLOY_WORK_DIR}" ]; then
+            echo "::error::Remote deployment work directory already exists; refusing stale reuse."
+            exit 1
+          fi
+          mkdir "\${YIZU_DEPLOY_WORK_DIR}"
           if [ ! -f "/tmp/yizu-deploy.tar.gz" ]; then
             echo "::error::Missing deploy package /tmp/yizu-deploy.tar.gz on remote host."
             ls -l /tmp || true
             exit 1
           fi
-          tar -xzf /tmp/yizu-deploy.tar.gz -C /tmp/yizu-deploy
-          chmod +x /tmp/yizu-deploy/remote_deploy.sh
-          bash /tmp/yizu-deploy/remote_deploy.sh
+          tar -xzf /tmp/yizu-deploy.tar.gz -C "\${YIZU_DEPLOY_WORK_DIR}"
+          chmod +x "\${YIZU_DEPLOY_WORK_DIR}/remote_deploy.sh"
+          bash "\${YIZU_DEPLOY_WORK_DIR}/remote_deploy.sh"
           EOF
 
       - name: Verify production services

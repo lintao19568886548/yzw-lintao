@@ -16,15 +16,7 @@
 - `R2_ACCESS_KEY_ID`、`R2_SECRET_ACCESS_KEY`、`R2_ENDPOINT_URL`、`R2_BUCKET_NAME`、`R2_PUBLIC_BASE_URL`
 - `YIZU_YMSINO_USERNAME`、`YIZU_YMSINO_PASSWORD`、`YIZU_HEZHONG_USERNAME`、`YIZU_HEZHONG_LOGIN_KEY`
 - `ALIYUN_BAILIAN_KEY`
-- `YIZU_SPACETIMEDB_PUBLISH_CMD`（推荐）
-
-示例：
-
-```
-spacetime publish yizu-server-yz18m --bin-path /opt/yizu/spacetime/parkwise_server.wasm --server self-hosted --yes=all
-```
-
-`--server` 形态按你实际 SpacetimeDB 服务端填写。
+- 生产发布不接受自定义发布命令；模块发布命令固定在受版本管理的远端脚本中。
 
 ### 1.2 Repository Variables
 
@@ -32,9 +24,7 @@ spacetime publish yizu-server-yz18m --bin-path /opt/yizu/spacetime/parkwise_serv
 - `YIZU_SPACETIMEDB_URI=https://yz.furong.org`
 - `YIZU_SPACETIMEDB_SERVER_URL=http://127.0.0.1:3000`
 - `YIZU_SPACETIMEDB_DATABASE=yizu-server-yz18m`
-- `YIZU_SPACETIMEDB_PUBLISH_YES=all`
 - `YIZU_SPACETIMEDB_SERVER=self-hosted`
-- `YIZU_SPACETIMEDB_PUBLISH_FORCE=false`
 - `YIZU_ENABLE_NGINX_CONF=true`
 - `YIZU_YMSINO_BASE_URL`, `YIZU_YMSINO_ORG_ID` 等业务参数按现有环境填写
 
@@ -46,10 +36,7 @@ spacetime publish yizu-server-yz18m --bin-path /opt/yizu/spacetime/parkwise_serv
 
 ## 3. 触发部署
 
-1. 推送代码到 `main` 触发自动部署
-2. 或在 `Actions -> Deploy to yz.furong.org` 点 `Run workflow`
-   - `force_publish_spacetime` 设为 `true` 时执行 SpacetimeDB 发布
-   - `false` 时仅发布 Dioxus web + 资产（不自动 republish spacetime）
+生产工作流不监听分支推送，只能在受保护的 `production` Environment 中手动运行。当前 P0-01 已移除清库、强制发布和任意命令入口；完整的 artifact 选择、审批与发布前置门禁由 P0-16 实施。
 
 ## 4. 连接稳定性检查（部署后）
 

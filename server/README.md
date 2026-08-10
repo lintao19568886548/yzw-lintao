@@ -272,7 +272,7 @@ Identity Token
 1. **扩展已有表优先追加带默认值标注的列**（整数、布尔、`Option<T>`）；需要非空字符串、或关系本身是一对多时，用关联表（`salary_finance` 即关联表范例）。
 2. **修改、删除既有列依旧等于清库**，此类需求必须重新设计（追加新列、关联表或导出重建）。
 3. **索引可以事后增删**，无需建表时穷举。
-4. **CI 变量 `YIZU_SPACETIMEDB_DELETE_DATA` 必须保持 `false`。** 把它设为 `true` 再推 main = 清空生产库。确需清库重建时，先用 SQL 导出数据、取得明确确认，改完立刻改回 `false`。
+4. **已由最新决策替代：**生产发布永久禁止清库和重建，工作流及远端脚本不再接受数据删除变量。遇到不兼容变更必须重新设计为兼容迁移，不存在临时打开生产清库开关的例外。
 
 发布前自查两个问题：这次改动是否**修改或删除**了已有列？是否追加了**没有默认值标注**的列？任一为是，就停下来重新设计。
 
@@ -362,16 +362,12 @@ dx bundle --release   # 发布构建
 
 ### 生产发布（唯一正规途径）
 
-推送到 `main` 分支即触发 `.github/workflows/deploy-production.yml`（workflow 名 `Deploy to yz.furong.org`，也可手动 `workflow_dispatch`），两个 Job：
+P0-01 后，`.github/workflows/deploy-production.yml` 仅允许手动触发，推送 `main` 不会触发生产部署。工作流保留两个 Job；完整的受保护审批和 artifact 门禁由 P0-16 实施：
 
 1. **Bundle Dioxus + build SpacetimeDB**：检出、装 Rust / Dioxus CLI / SpacetimeDB CLI 2.6.1、校验生产端点、`dx bundle --release`、编译 WASM、打包上传部署产物。
 2. **Publish Dioxus + SpacetimeDB**：SSH 同步到服务器、生成运行时环境变量、执行远端部署脚本（更新 Web 服务并 `spacetime publish` 模块）。
 
-清库开关由仓库变量 `YIZU_SPACETIMEDB_DELETE_DATA` 控制（缺省 `false`）。**推送前先确认它是 `false`**：
-
-```bash
-gh variable list | grep DELETE_DATA
-```
+生产工作流和远端脚本均不接受清库变量、任意发布命令或强制发布入口。若 schema 不兼容，固定发布命令必须失败并停止。
 
 ### 发布后核对（每次都做）
 

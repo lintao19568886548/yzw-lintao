@@ -2,23 +2,17 @@
 set -euo pipefail
 
 APP_ROOT="${YIZU_APP_ROOT:-/home/ubuntu/yizu}"
-RELEASE_TARBALL="${YIZU_RELEASE_TARBALL:-/tmp/yizu-deploy.tar.gz}"
 RUNTIME_ENV="${YIZU_RUNTIME_ENV:-/tmp/yizu-runtime.env}"
 SERVICE_NAME="${YIZU_SERVER_NAME:-yizu-app}"
 APP_PORT="${YIZU_SERVER_PORT:-8081}"
 APP_IP="${YIZU_SERVER_IP:-127.0.0.1}"
-WORK_DIR="${YIZU_DEPLOY_WORK_DIR:-/tmp/yizu-deploy}"
+DEPLOY_ENVIRONMENT="${YIZU_DEPLOY_ENVIRONMENT:-}"
+WORK_DIR="${YIZU_DEPLOY_WORK_DIR:-}"
 SPACETIME_WASM="${YIZU_SPACETIME_WASM_NAME:-parkwise_server.wasm}"
 SPACETIME_DB_NAME="${YIZU_SPACETIMEDB_DB_NAME:-yizu-server-yz18m}"
 SPACETIME_SERVER="${YIZU_SPACETIMEDB_SERVER:-local}"
 SPACETIME_CLI="${YIZU_SPACETIMEDB_CLI:-/stdb/spacetime}"
-SPACETIME_PUBLISH_YES="${YIZU_SPACETIMEDB_PUBLISH_YES:-all}"
-SPACETIME_PUBLISH_FORCE="${YIZU_SPACETIMEDB_FORCE_PUBLISH:-false}"
-# 发布时先销毁全部数据，用于 SpacetimeDB 拒绝的表结构变更（改列、删列一律
-# 被拒，只能重建）。默认关闭，且必须显式写成 true 才生效——任何别的值都
-# 按关闭处理，避免手滑写个 1 或 yes 就把生产数据清了。
-SPACETIME_DELETE_DATA="${YIZU_SPACETIMEDB_DELETE_DATA:-false}"
-PUBLISH_CMD="${YIZU_SPACETIMEDB_PUBLISH_CMD:-}"
+SPACETIME_PUBLISH_ENABLED="${YIZU_SPACETIMEDB_PUBLISH_ENABLED:-false}"
 ENABLE_NGINX="${YIZU_ENABLE_NGINX_CONF:-true}"
 NGINX_CONF_NAME="${YIZU_NGINX_CONF_NAME:-yizu-furong.org.conf}"
 
@@ -31,8 +25,29 @@ if [ "$(id -u)" -ne 0 ]; then
   PRIVILEGED_PREFIX="sudo"
 fi
 
-if [ ! -f "$RELEASE_TARBALL" ]; then
-  echo "部署失败：未找到部署包 $RELEASE_TARBALL"
+case "$DEPLOY_ENVIRONMENT" in
+  production | test | local) ;;
+  *)
+    echo "部署失败：部署环境未明确识别，已按失败关闭处理。"
+    exit 1
+    ;;
+esac
+
+# 生产上下文只检查环境变量名称，不读取或输出配置值。即使旧工作流或人工调用
+# 再次注入危险开关，脚本也会在任何文件、服务或数据库操作前直接拒绝。
+if [ "$DEPLOY_ENVIRONMENT" = "production" ]; then
+  while IFS= read -r variable_name; do
+    case "$variable_name" in
+      YIZU_*CLEAR* | YIZU_*DELETE_DATA* | YIZU_*DESTROY* | YIZU_*DROP* | YIZU_*FORCE* | YIZU_*PURGE* | YIZU_*TRUNCATE* | YIZU_*WIPE*)
+        echo "部署失败：生产上下文检测到被禁止的破坏性配置项名称。"
+        exit 1
+        ;;
+    esac
+  done < <(compgen -e)
+fi
+
+if [[ ! "$WORK_DIR" =~ ^/tmp/yizu-deploy\.[A-Za-z0-9_-]+$ ]] || [ ! -d "$WORK_DIR" ]; then
+  echo "部署失败：部署工作目录缺失或不在允许的临时目录范围内。"
   exit 1
 fi
 
@@ -41,11 +56,8 @@ if [ ! -f "$RUNTIME_ENV" ]; then
   exit 1
 fi
 
-echo "[$(date '+%F %T')] 开始部署：$RELEASE_TARBALL"
-mkdir -p "$WORK_DIR" "$RELEASES_DIR" "$SPACETIME_DIR"
-rm -rf "$WORK_DIR"/*
-
-tar -xzf "$RELEASE_TARBALL" -C "$WORK_DIR"
+echo "[$(date '+%F %T')] 开始部署已验证的临时工作目录。"
+mkdir -p "$RELEASES_DIR" "$SPACETIME_DIR"
 
 if [ ! -f "$WORK_DIR/web/server" ]; then
   echo "部署失败：缺少 web/server 可执行文件"
@@ -100,33 +112,21 @@ $PRIVILEGED_PREFIX systemctl daemon-reload
 $PRIVILEGED_PREFIX systemctl enable "$SERVICE_NAME".service
 $PRIVILEGED_PREFIX systemctl restart "$SERVICE_NAME".service
 
-if [ "$SPACETIME_PUBLISH_FORCE" = "true" ] || [ -n "$PUBLISH_CMD" ]; then
+if [ "$SPACETIME_PUBLISH_ENABLED" = "true" ]; then
   if [ -x "$SPACETIME_CLI" ]; then
-    echo "开始发布 SpacetimeDB..."
+    echo "开始执行固定的非破坏性 SpacetimeDB 发布..."
     if [ -f /etc/systemd/system/spacetimedb.service ]; then
       $PRIVILEGED_PREFIX systemctl enable --now spacetimedb.service
     fi
-    if [ -n "$PUBLISH_CMD" ]; then
-      bash -lc "$PUBLISH_CMD"
-    else
-      $PRIVILEGED_PREFIX install -d -m 0750 -o spacetimedb -g spacetimedb /stdb/modules
-      $PRIVILEGED_PREFIX install -m 0750 -o spacetimedb -g spacetimedb \
-        "$SPACETIME_DIR/$SPACETIME_WASM" "/stdb/modules/$SPACETIME_WASM"
-      publish_args=(
-        --bin-path "/stdb/modules/$SPACETIME_WASM"
-        --server "$SPACETIME_SERVER"
-        --yes="${SPACETIME_PUBLISH_YES}"
-      )
-      if [ "$SPACETIME_DELETE_DATA" = "true" ]; then
-        echo "⚠️  YIZU_SPACETIMEDB_DELETE_DATA=true：本次发布将销毁数据库全部数据后重建表结构。"
-        publish_args+=(--delete-data)
-      fi
-      $PRIVILEGED_PREFIX runuser -u spacetimedb -- "$SPACETIME_CLI" --root-dir=/stdb publish "$SPACETIME_DB_NAME" \
-        "${publish_args[@]}"
-    fi
+    $PRIVILEGED_PREFIX install -d -m 0750 -o spacetimedb -g spacetimedb /stdb/modules
+    $PRIVILEGED_PREFIX install -m 0750 -o spacetimedb -g spacetimedb \
+      "$SPACETIME_DIR/$SPACETIME_WASM" "/stdb/modules/$SPACETIME_WASM"
+    $PRIVILEGED_PREFIX runuser -u spacetimedb -- "$SPACETIME_CLI" --root-dir=/stdb publish "$SPACETIME_DB_NAME" \
+      --bin-path "/stdb/modules/$SPACETIME_WASM" \
+      --server "$SPACETIME_SERVER" \
+      --yes=all
   else
     echo "跳过 Spacetime 发布：未检测到 spacetime CLI。"
-    echo "请在远端安装 CLI，并配置 YIZU_SPACETIMEDB_PUBLISH_CMD 后重试。"
   fi
 else
   echo "未开启 Spacetime 发布开关，已跳过 publish。"

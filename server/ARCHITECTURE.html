@@ -574,7 +574,7 @@ ctx.db.finance().finance_id().delete(id);              // 按主键删除</code>
       <li><strong>扩展已有表时，优先考虑表尾追加带默认值标注的列</strong>（适用于整数、布尔、<code>Option&lt;T&gt;</code> 等类型）；需要非空字符串列、或所建模的关系本身为一对多时，采用关联表（范例：<code>salary_finance</code>，§2.7）。</li>
       <li><strong>修改、删除既有列不可平滑迁移</strong>，此类需求必须重新设计：追加新列、新建关联表，或经数据导出重建。</li>
       <li><strong>索引可以随时增删</strong>，无需在建表时穷尽预判。</li>
-      <li><strong>CI 变量 <code>YIZU_SPACETIMEDB_DELETE_DATA</code> 必须保持 <code>false</code>。</strong>该变量为 <code>true</code> 时推送主分支将清空生产数据库。</li>
+      <li><strong>已由最新决策替代：</strong>生产工作流和远端脚本永久移除清库变量、重建和任意发布命令入口；不再把“变量保持关闭”作为数据保护措施。</li>
     </ol>
     <blockquote>任何涉及表结构的改动，提交前必须回答两个问题：是否修改或删除了已存在的列；是否追加了无默认值标注的列。任一答案为是，改动方案必须重新设计。</blockquote>
   </section>
@@ -1000,11 +1000,11 @@ ctx.db.finance().finance_id().update(finance);  // 整行写回</code></pre>
 
   <section id="s4-3">
     <div class="sec-head"><span class="sec-no">4.3</span><h3>发布安全评估</h3></div>
-    <p>推送主分支即触发生产部署（流程见 README 第十节），因此每次提交前必须完成 Schema 影响评估：</p>
+    <p>生产工作流已在 P0-01 改为仅允许手动触发；每次申请生产发布前必须完成 Schema 影响评估：</p>
     <ol>
       <li>本次改动对 Schema 的影响是否属于可平滑迁移的类别（新表、新 Reducer / View / Procedure、索引增删、带默认值标注的追加列，见 §1.13）；</li>
       <li>是否修改或删除了已存在表的列、或追加了无默认值标注的列——若是，依据 §1.13 该改动无法平滑发布，方案必须重新设计；</li>
-      <li>CI 变量 <code>YIZU_SPACETIMEDB_DELETE_DATA</code> 是否保持 <code>false</code>（确认命令：<code>gh variable list | grep DELETE_DATA</code>）；</li>
+      <li>生产工作流与远端脚本是否仍通过 P0-01 破坏性入口扫描，且不存在清库、重建、强制发布或任意命令入口；</li>
       <li>部署完成后按 README 第十节执行核对：CI 状态、模块日志、生产数据抽查、前端可用性。</li>
     </ol>
   </section>

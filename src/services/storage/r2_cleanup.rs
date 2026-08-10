@@ -7,6 +7,9 @@ use super::super::credentials::load_saved_token;
 #[cfg(feature = "server")]
 use super::r2::{image_metadata_exists, r2_client, validate_admin_token};
 
+#[cfg(any(feature = "server", test))]
+const NON_PRODUCTION_DELETE_CONFIRMATION: &str = "CONFIRM_NON_PRODUCTION_OBJECT_DELETE";
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct StoredR2Image {
     pub img_id: u64,
@@ -45,6 +48,7 @@ async fn delete_r2_salary_images(
             return Err(ServerFnError::new("单次最多清理 50 张工资凭证"));
         }
         let auth = validate_admin_token(&token).await?;
+        require_physical_object_deletion_allowed()?;
         let (client, bucket, public_base) = r2_client().await?;
         let mut deleted = 0u32;
         let mut processed = BTreeSet::new();
@@ -76,6 +80,44 @@ async fn delete_r2_salary_images(
     }
 }
 
+#[cfg(feature = "server")]
+fn require_physical_object_deletion_allowed() -> Result<(), ServerFnError> {
+    let environment = std::env::var("YIZU_DEPLOY_ENVIRONMENT").ok();
+    let data_scope = std::env::var("YIZU_DATA_SCOPE").ok();
+    let confirmation = std::env::var("YIZU_ALLOW_DESTRUCTIVE_TEST_OPERATIONS").ok();
+    physical_object_delete_policy(
+        environment.as_deref(),
+        data_scope.as_deref(),
+        confirmation.as_deref(),
+    )
+    .map_err(ServerFnError::new)
+}
+
+/// 生产和未知环境永久拒绝物理删除。仅隔离的本地/测试数据在双重显式确认后允许，
+/// 且生产工作流不传入确认项。Phase 0 的延迟删除与 30 天恢复能力由 P0-05 实现；
+/// 在其完成前宁可保留孤儿对象，也不执行不可恢复删除。
+#[cfg(any(feature = "server", test))]
+fn physical_object_delete_policy(
+    environment: Option<&str>,
+    data_scope: Option<&str>,
+    confirmation: Option<&str>,
+) -> Result<(), &'static str> {
+    match environment {
+        Some("local" | "test")
+            if data_scope == Some("isolated-non-production")
+                && confirmation == Some(NON_PRODUCTION_DELETE_CONFIRMATION) =>
+        {
+            Ok(())
+        }
+        Some("local" | "test") if data_scope != Some("isolated-non-production") => {
+            Err("未确认使用独立非生产数据，禁止对象物理删除")
+        }
+        Some("local" | "test") => Err("非生产对象物理删除未获得显式确认"),
+        Some("production") => Err("生产环境永久禁止对象物理删除"),
+        _ => Err("运行环境未明确识别，禁止对象物理删除"),
+    }
+}
+
 #[cfg(any(feature = "server", test))]
 fn salary_object_key(public_base: &str, public_url: &str) -> Option<String> {
     let key = public_url
@@ -91,7 +133,9 @@ fn salary_object_key(public_base: &str, public_url: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::salary_object_key;
+    use super::{
+        physical_object_delete_policy, salary_object_key, NON_PRODUCTION_DELETE_CONFIRMATION,
+    };
 
     const HASH: &str = "803b88bf05a35dff4ca0d0666b38953c19e3d4304c6617ca5c9c4ba2cb9b57fc";
 
@@ -108,6 +152,50 @@ mod tests {
                 &format!("{base}/yizu/salary-images/{HASH}.jpg")
             ),
             None
+        );
+    }
+
+    #[test]
+    fn 生产和未知环境永久拒绝对象物理删除() {
+        assert!(physical_object_delete_policy(Some("production"), None, None).is_err());
+        assert!(physical_object_delete_policy(
+            Some("production"),
+            Some("isolated-non-production"),
+            Some(NON_PRODUCTION_DELETE_CONFIRMATION)
+        )
+        .is_err());
+        assert!(physical_object_delete_policy(None, None, None).is_err());
+        assert!(physical_object_delete_policy(Some("staging"), None, None).is_err());
+    }
+
+    #[test]
+    fn 本地和测试环境必须使用精确确认信息() {
+        assert!(physical_object_delete_policy(Some("local"), None, None).is_err());
+        assert!(
+            physical_object_delete_policy(Some("test"), Some("isolated-non-production"), None)
+                .is_err()
+        );
+        assert!(physical_object_delete_policy(
+            Some("test"),
+            Some("isolated-non-production"),
+            Some("true")
+        )
+        .is_err());
+        assert_eq!(
+            physical_object_delete_policy(
+                Some("local"),
+                Some("isolated-non-production"),
+                Some(NON_PRODUCTION_DELETE_CONFIRMATION)
+            ),
+            Ok(())
+        );
+        assert_eq!(
+            physical_object_delete_policy(
+                Some("test"),
+                Some("isolated-non-production"),
+                Some(NON_PRODUCTION_DELETE_CONFIRMATION)
+            ),
+            Ok(())
         );
     }
 }

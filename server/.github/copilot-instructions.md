@@ -123,15 +123,11 @@ spacetime generate --lang typescript|csharp|rust|unrealcpp --out-dir ./bindings 
 ### Publishing & Deployment
 
 ```bash
-# Publish to Maincloud (default)
-spacetime publish my-database --yes
-
-# Publish to local server
+# Local development only
 spacetime publish my-database --server local --yes
-
-# Clear database and republish
-spacetime publish my-database --delete-data always --yes
 ```
+
+Production publishing is only allowed through the repository's manual production workflow. Database clearing, database recreation, forced data deletion, and arbitrary publish commands are permanently forbidden in production. An incompatible schema must be redesigned as an additive migration.
 
 ### Database Interaction
 
@@ -162,12 +158,11 @@ spacetime describe my-database reducer my_reducer --json
 # List databases
 spacetime list
 
-# Delete database
-spacetime delete my-database
-
 # Rename database
 spacetime rename <database-identity> --to new-name
 ```
+
+Database deletion commands are intentionally omitted. Use an isolated, disposable local/test module and the approved non-production runbook when test cleanup is genuinely required.
 
 ### Server Management
 
@@ -239,10 +234,8 @@ spacetime server ping <server>
 ```
 
 ### "Schema conflict"
-```bash
-# Clear data and republish
-spacetime publish my-db --delete-data always --yes
-```
+
+Stop the publish and redesign the schema as an additive, compatible migration. Never resolve a production schema conflict by clearing or rebuilding the database.
 
 ### "Build failed"
 ```bash

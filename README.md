@@ -188,7 +188,7 @@ cargo check --target wasm32-unknown-unknown             # WASM 目标必须零�
 
 ## 六、发布
 
-**推送 `main` 即触发生产部署**（`.github/workflows/deploy-production.yml`），一次构建同时发布 Dioxus Web 与 SpacetimeDB 模块到 `yz.furong.org`。没有手动发布这条路。
+生产工作流已在 P0-01 改为仅允许手动触发；推送 `main` 不再触发生产部署。完整的受保护 Environment 审批、不可变 artifact 和发布前置门禁继续由 P0-16 实施。
 
 因此每次提交前必须做 Schema 影响评估。SpacetimeDB 2.6.1 的迁移红线：
 
@@ -199,7 +199,7 @@ cargo check --target wasm32-unknown-unknown             # WASM 目标必须零�
 | 带 `#[default(...)]` 的**尾部追加**列 | **删除表** |
 | | 追加列但没写默认值 |
 
-**列的设计必须一次定稿。** 撞上不可迁移的改动时，正确反应是重新设计方案，而不是想办法绕过——生产环境已有真实数据，`YIZU_SPACETIMEDB_DELETE_DATA` 必须保持 `false`。
+**列的设计必须一次定稿。** 撞上不可迁移的改动时必须重新设计；生产发布代码中已永久移除清库和重建入口，不再依靠可误设的布尔变量保护数据。
 
 发布后的核对清单（CI 状态、模块日志、生产数据抽查、前端可用性）见 [server/README.md 第十节](server/README.md)。
 
