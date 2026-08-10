@@ -1,23 +1,25 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { storeToRefs } from 'pinia'
 import { onShow } from '@dcloudio/uni-app'
 import DemoBadge from '@/components/DemoBadge.vue'
 import { miniappApi } from '@/api/miniapp'
 import { mapApiError } from '@/api/client'
 import { requireAuth } from '@/composables/useAuthGuard'
+import { restoreFlowState, useDemandForm } from '@/composables/useDemandForm'
 import { useAuthStore } from '@/stores/auth'
 import { useDemandStore } from '@/stores/demand'
-import type { RentUnit, SpaceType } from '@/types/domain'
+import { useMetadataStore } from '@/stores/metadata'
+import type { ConstraintKey, ConstraintLevel, RentUnit, SpaceType } from '@/types/domain'
 import { validateConfirmedDemand } from '@/utils/validation'
 
 const auth = useAuthStore()
 const store = useDemandStore()
-const demand = store.demand
+const metadata = useMetadataStore()
+const { demand } = storeToRefs(store)
+const { rentMinYuan, rentMaxYuan, hardText, preferenceText, syncFromStore, applyConfirmationToStore } = useDemandForm(store)
 const loading = ref(false)
 const errorMessage = ref('')
-const hardText = ref(demand.hard_conditions.join('、'))
-const preferenceText = ref(demand.preference_conditions.join('、'))
-const towns = ['莞城', '东城', '南城', '万江', '松山湖', '寮步', '大朗', '长安', '虎门', '厚街', '常平', '塘厦', '麻涌', '沙田']
 const spaceOptions: Array<{ value: SpaceType; label: string }> = [
   { value: 'factory', label: '厂房' }, { value: 'warehouse', label: '仓库' }, { value: 'office', label: '写字楼' },
 ]
@@ -28,48 +30,92 @@ const rentUnitOptions: Array<{ value: RentUnit; label: string }> = [
 const missingLabels: Record<string, string> = {
   space_type: '空间类型', target_towns: '目标镇街', area_range: '面积范围',
 }
+const constraintLabels: Record<ConstraintKey, string> = {
+  budget: '预算', freight_elevator: '货梯', elevator_capacity: '电梯吨位', power_capacity: '用电容量',
+  fire_safety: '消防要求', truck_access: '货车通行', loading_dock: '装卸条件', sublease: '接受分租',
+  floor: '楼层', move_in: '入驻时间',
+}
+const priorityOptions = ['偏好', '硬条件', '不指定']
 
-const spaceLabel = computed(() => spaceOptions.find((item) => item.value === demand.constraints.space_type)?.label ?? '请选择')
-const rentUnitLabel = computed(() => rentUnitOptions.find((item) => item.value === demand.constraints.rent_unit)?.label ?? '请选择')
-const confidence = computed(() => `${Math.round(demand.ai_confidence * 100)}%`)
+const applicableConstraintKeys = computed<ConstraintKey[]>(() => {
+  const value = demand.value.constraints
+  return (Object.keys(constraintLabels) as ConstraintKey[]).filter((key) => ({
+    budget: value.rent_max_cents !== null && value.rent_unit !== null,
+    freight_elevator: value.needs_freight_elevator === true,
+    elevator_capacity: value.elevator_min_tons !== null,
+    power_capacity: value.power_capacity_kva !== null,
+    fire_safety: Boolean(value.fire_requirement),
+    truck_access: Boolean(value.logistics_requirement),
+    loading_dock: Boolean(value.loading_requirement),
+    sublease: value.accepts_sublease !== null,
+    floor: Boolean(value.floor_preference),
+    move_in: Boolean(value.move_in_time),
+  })[key])
+})
 
-onShow(() => {
-  auth.hydrate()
-  store.hydrate()
+const spaceLabel = computed(() => spaceOptions.find((item) => item.value === demand.value.constraints.space_type)?.label ?? '请选择')
+const rentUnitLabel = computed(() => rentUnitOptions.find((item) => item.value === demand.value.constraints.rent_unit)?.label ?? '请选择')
+const confidence = computed(() => `${Math.round(demand.value.ai_confidence * 100)}%`)
+
+onShow(async () => {
+  restoreFlowState(auth, store, syncFromStore)
   if (!requireAuth(auth)) return
   if (!store.interpretation) uni.reLaunch({ url: '/pages/home/index' })
+  await metadata.load(demand.value.constraints.target_towns)
+})
+
+watch(demand, () => store.persist(), { deep: true })
+watch([rentMinYuan, rentMaxYuan, hardText, preferenceText], () => {
+  try { applyConfirmationToStore() } catch { /* 输入完成前保留上一份有效持久化快照。 */ }
 })
 
 function pickSpace(event: { detail: { value: number } }): void {
-  demand.constraints.space_type = spaceOptions[event.detail.value]?.value ?? null
+  demand.value.constraints.space_type = spaceOptions[event.detail.value]?.value ?? null
 }
 
 function pickRentUnit(event: { detail: { value: number } }): void {
-  demand.constraints.rent_unit = rentUnitOptions[event.detail.value]?.value ?? null
+  demand.value.constraints.rent_unit = rentUnitOptions[event.detail.value]?.value ?? null
 }
 
 function changeTowns(event: { detail: { value: string[] } }): void {
-  demand.constraints.target_towns = event.detail.value.slice(0, 8)
+  demand.value.constraints.target_towns = event.detail.value.slice(0, 8)
 }
 
 function changeFreightElevator(event: unknown): void {
   const value = (event as { detail?: { value?: unknown } }).detail?.value
-  demand.constraints.needs_freight_elevator = typeof value === 'boolean' ? value : null
+  demand.value.constraints.needs_freight_elevator = typeof value === 'boolean' ? value : null
+  if (value === true) setPriority('freight_elevator', 'hard')
+  else setPriority('freight_elevator', null)
 }
 
 function pickSublease(event: { detail: { value: number } }): void {
-  demand.constraints.accepts_sublease = [null, true, false][event.detail.value] ?? null
+  demand.value.constraints.accepts_sublease = [null, true, false][event.detail.value] ?? null
 }
 
-function splitConditions(value: string): string[] {
-  return value.split(/[、,，\n]/u).map((item) => item.trim()).filter(Boolean).slice(0, 20)
+function priorityLabel(key: ConstraintKey): string {
+  const explicit = demand.value.constraint_priorities.find((item) => item.key === key)?.level
+  if (explicit === 'hard' || (key === 'freight_elevator' && demand.value.constraints.needs_freight_elevator)) return '硬条件'
+  return '偏好'
+}
+
+function setPriority(key: ConstraintKey, level: ConstraintLevel | null): void {
+  demand.value.constraint_priorities = demand.value.constraint_priorities.filter((item) => item.key !== key)
+  if (level) demand.value.constraint_priorities.push({ key, level })
+}
+
+function changePriority(key: ConstraintKey, event: { detail: { value: number } }): void {
+  setPriority(key, ["preference", "hard", null][event.detail.value] as ConstraintLevel | null)
 }
 
 async function match(): Promise<void> {
   if (!requireAuth(auth)) return
-  demand.hard_conditions = splitConditions(hardText.value)
-  demand.preference_conditions = splitConditions(preferenceText.value)
-  const errors = validateConfirmedDemand(demand)
+  try {
+    applyConfirmationToStore()
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '预算格式无效'
+    return
+  }
+  const errors = validateConfirmedDemand(demand.value)
   if (errors.length) {
     errorMessage.value = errors.join('；')
     return
@@ -79,7 +125,7 @@ async function match(): Promise<void> {
   store.matching = true
   store.persist()
   try {
-    const response = await miniappApi.createMatches({ session_token: auth.session_token, demand })
+    const response = await miniappApi.createMatches({ session_token: auth.session_token, demand: demand.value })
     store.setMatches(response)
     uni.navigateTo({ url: '/pages/results/index' })
   } catch (error) {
@@ -99,6 +145,7 @@ async function match(): Promise<void> {
       <view class="summary-row"><text>AI置信度</text><text class="confidence">{{ confidence }}</text></view>
       <view v-if="store.interpretation?.fallback_reason" class="notice">已回退本地解析：{{ store.interpretation.fallback_reason }}</view>
       <view v-if="demand.missing_fields.length" class="notice">尚缺必要字段：{{ demand.missing_fields.map((item) => missingLabels[item] ?? item).join('、') }}</view>
+      <view v-if="metadata.notice" class="notice">{{ metadata.notice }}</view>
     </view>
 
     <view class="card form-card">
@@ -106,13 +153,13 @@ async function match(): Promise<void> {
       <view class="field"><text class="field-label">原始描述</text><textarea v-model="demand.raw_text" class="textarea" maxlength="1000" /></view>
       <view class="row field">
         <view><text class="field-label">空间类型</text><picker :range="spaceOptions" range-key="label" @change="pickSpace"><view class="picker">{{ spaceLabel }}</view></picker></view>
-        <view><text class="field-label">入驻时间</text><input v-model.trim="demand.constraints.move_in_time" class="input" placeholder="YYYY-MM-DD/立即" /></view>
+        <view><text class="field-label">入驻时间</text><input v-model.trim="demand.constraints.move_in_time" class="input" placeholder="YYYY-MM-DD / immediate" /></view>
       </view>
 
       <view class="field">
         <text class="field-label">目标镇街（可多选，最多8个）</text>
         <checkbox-group class="town-grid" @change="changeTowns">
-          <label v-for="town in towns" :key="town" class="town-option"><checkbox :value="town" :checked="demand.constraints.target_towns.includes(town)" color="#8f1720" /><text>{{ town }}</text></label>
+          <label v-for="town in metadata.towns" :key="town" class="town-option"><checkbox :value="town" :checked="demand.constraints.target_towns.includes(town)" color="#8f1720" /><text>{{ town }}</text></label>
         </checkbox-group>
       </view>
 
@@ -121,8 +168,8 @@ async function match(): Promise<void> {
         <view><text class="field-label">面积上限（㎡）</text><input v-model.number="demand.constraints.area_max_sqm" class="input" type="number" /></view>
       </view>
       <view class="row field">
-        <view><text class="field-label">预算下限（分）</text><input v-model.number="demand.constraints.rent_min_cents" class="input" type="number" placeholder="可选" /></view>
-        <view><text class="field-label">预算上限（分）</text><input v-model.number="demand.constraints.rent_max_cents" class="input" type="number" placeholder="可选" /></view>
+        <view><text class="field-label">预算下限（元）</text><input v-model="rentMinYuan" class="input" type="digit" placeholder="可选，最多两位小数" /></view>
+        <view><text class="field-label">预算上限（元）</text><input v-model="rentMaxYuan" class="input" type="digit" placeholder="可选，最多两位小数" /></view>
       </view>
       <view class="field"><text class="field-label">租金单位</text><picker :range="rentUnitOptions" range-key="label" @change="pickRentUnit"><view class="picker">{{ rentUnitLabel }}</view></picker></view>
 
@@ -140,6 +187,13 @@ async function match(): Promise<void> {
       <view class="field"><text class="field-label">消防要求</text><input v-model.trim="demand.constraints.fire_requirement" class="input" placeholder="如 丙类消防" /></view>
       <view class="field"><text class="field-label">物流要求</text><input v-model.trim="demand.constraints.logistics_requirement" class="input" placeholder="如 17.5米货车通行" /></view>
       <view class="field"><text class="field-label">装卸要求</text><input v-model.trim="demand.constraints.loading_requirement" class="input" placeholder="如 需要装卸月台" /></view>
+      <view v-if="applicableConstraintKeys.length" class="field">
+        <text class="field-label">条件优先级（服务端强制执行硬条件）</text>
+        <view v-for="key in applicableConstraintKeys" :key="key" class="priority-row">
+          <text>{{ constraintLabels[key] }}</text>
+          <picker :range="priorityOptions" @change="changePriority(key, $event)"><view class="picker compact">{{ priorityLabel(key) }}</view></picker>
+        </view>
+      </view>
       <view class="field"><text class="field-label">其他补充</text><textarea v-model="demand.constraints.other_notes" class="textarea small" maxlength="500" /></view>
       <view class="field"><text class="field-label">硬条件（顿号/逗号分隔）</text><textarea v-model="hardText" class="textarea small" maxlength="1000" /></view>
       <view class="field"><text class="field-label">偏好条件（顿号/逗号分隔）</text><textarea v-model="preferenceText" class="textarea small" maxlength="1000" /></view>
@@ -159,4 +213,6 @@ async function match(): Promise<void> {
 .switch-row { display: flex; align-items: center; justify-content: space-between; }
 .switch-row .field-label { margin: 0; }
 .textarea.small { min-height: 130rpx; }
+.priority-row { display: flex; align-items: center; justify-content: space-between; margin-top: 12rpx; }
+.picker.compact { min-width: 180rpx; padding: 12rpx 18rpx; }
 </style>

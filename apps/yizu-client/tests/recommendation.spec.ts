@@ -15,10 +15,13 @@ describe('推荐结果转换', () => {
       overall_score: 92.5,
       dimension_scores: [],
       recommendation_reasons: ['位置匹配', '面积匹配', '预算匹配', '第四条'],
-      unmet_conditions: [], area_relaxed: false, data_gaps: [],
+      unmet_conditions: [], satisfied_hard_constraints: [], unmet_hard_constraints: [],
+      unverified_hard_constraints: [], unmet_preferences: [], area_relaxed: false, data_gaps: [],
     } satisfies MatchResult
     const card = mapMatchToCard(result)
     expect(card.reasons).toHaveLength(3)
     expect(card.subtitle).toContain('1500㎡')
+    expect(card.rent).toBe('¥30/平方米/月 · 月租约¥45,000元')
+    expect(card.submissionBlocked).toBe(false)
   })
 })

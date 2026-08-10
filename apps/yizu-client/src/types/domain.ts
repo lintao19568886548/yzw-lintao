@@ -2,6 +2,13 @@ export type SpaceType = 'factory' | 'warehouse' | 'office'
 export type RentUnit = 'yuan_per_month' | 'yuan_per_square_metre_month'
 export type ListingVerificationLevel = 'l0' | 'l1' | 'l2' | 'l3'
 export type AdvisorAssignmentStatus = 'pending_assignment'
+export type ConstraintKey = 'budget' | 'freight_elevator' | 'elevator_capacity' | 'power_capacity' | 'fire_safety' | 'truck_access' | 'loading_dock' | 'sublease' | 'floor' | 'move_in'
+export type ConstraintLevel = 'hard' | 'preference'
+
+export interface ConstraintPriority {
+  key: ConstraintKey
+  level: ConstraintLevel
+}
 
 export interface DemandConstraints {
   space_type: SpaceType | null
@@ -28,6 +35,7 @@ export interface DemandDraft {
   constraints: DemandConstraints
   hard_conditions: string[]
   preference_conditions: string[]
+  constraint_priorities: ConstraintPriority[]
   missing_fields: string[]
   ai_confidence: number
 }
@@ -76,8 +84,18 @@ export interface MatchResult {
   dimension_scores: MatchDimensionScore[]
   recommendation_reasons: string[]
   unmet_conditions: string[]
+  satisfied_hard_constraints: ConstraintAssessment[]
+  unmet_hard_constraints: ConstraintAssessment[]
+  unverified_hard_constraints: ConstraintAssessment[]
+  unmet_preferences: ConstraintAssessment[]
   area_relaxed: boolean
   data_gaps: string[]
+}
+
+export interface ConstraintAssessment {
+  key: ConstraintKey | null
+  label: string
+  detail: string
 }
 
 export interface MatchResponse {
@@ -131,5 +149,9 @@ export interface MetadataOptions {
   space_types: string[]
   rent_units: string[]
   verification_levels: string[]
+  constraint_keys: ConstraintKey[]
+  business_timezone: 'Asia/Shanghai'
+  currency_storage_unit: 'cents'
+  currency_display_unit: 'yuan'
   demo_data: boolean
 }

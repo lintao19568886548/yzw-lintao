@@ -1,25 +1,25 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import BrandHeader from '@/components/BrandHeader.vue'
 import DemoBadge from '@/components/DemoBadge.vue'
 import { miniappApi } from '@/api/miniapp'
 import { mapApiError } from '@/api/client'
 import { requireAuth } from '@/composables/useAuthGuard'
+import { restoreFlowState, useDemandForm } from '@/composables/useDemandForm'
 import { useAuthStore } from '@/stores/auth'
-import { emptyDemand, useDemandStore } from '@/stores/demand'
+import { useDemandStore } from '@/stores/demand'
+import { useMetadataStore } from '@/stores/metadata'
 import type { SpaceType } from '@/types/domain'
 import { validateInitialDemand } from '@/utils/validation'
 
 const auth = useAuthStore()
 const demandStore = useDemandStore()
-const rawText = ref(demandStore.demand.raw_text)
-const selectedType = ref<SpaceType | null>(demandStore.demand.constraints.space_type)
-const selectedTown = ref(demandStore.demand.constraints.target_towns[0] ?? '')
-const areaMin = ref<number | null>(demandStore.demand.constraints.area_min_sqm)
-const areaMax = ref<number | null>(demandStore.demand.constraints.area_max_sqm)
-const budgetYuan = ref<number | null>(null)
-const towns = ref<string[]>(['松山湖', '南城', '东城', '寮步', '大朗', '长安', '虎门', '厚街', '常平', '塘厦'])
+const metadata = useMetadataStore()
+const {
+  rawText, selectedType, selectedTown, areaMin, areaMax, budgetYuan,
+  syncFromStore, applyHomeToStore,
+} = useDemandForm(demandStore)
 const loading = ref(false)
 const errorMessage = ref('')
 
@@ -29,33 +29,29 @@ const typeOptions: Array<{ value: SpaceType; label: string }> = [
   { value: 'office', label: '写字楼' },
 ]
 
+watch([rawText, selectedType, selectedTown, areaMin, areaMax, budgetYuan], () => {
+  try { applyHomeToStore() } catch { /* 输入完成前保留上一份有效持久化快照。 */ }
+})
+
 onShow(async () => {
-  auth.hydrate()
-  demandStore.hydrate()
+  restoreFlowState(auth, demandStore, syncFromStore)
   if (!requireAuth(auth)) return
-  try {
-    towns.value = (await miniappApi.loadMetadata()).towns
-  } catch {
-    // 本地静态常用镇街可继续支持输入，完整列表稍后重试加载。
-  }
+  await metadata.load(demandStore.demand.constraints.target_towns)
 })
 
 function onTownChange(event: { detail: { value: number } }): void {
-  selectedTown.value = towns.value[event.detail.value] ?? ''
+  selectedTown.value = metadata.towns[event.detail.value] ?? ''
 }
 
 async function interpret(): Promise<void> {
   if (!requireAuth(auth)) return
-  const demand = emptyDemand()
-  demand.raw_text = rawText.value
-  demand.constraints.space_type = selectedType.value
-  demand.constraints.target_towns = selectedTown.value ? [selectedTown.value] : []
-  demand.constraints.area_min_sqm = areaMin.value
-  demand.constraints.area_max_sqm = areaMax.value
-  if (budgetYuan.value !== null && budgetYuan.value > 0) {
-    demand.constraints.rent_max_cents = Math.round(budgetYuan.value * 100)
-    demand.constraints.rent_unit = 'yuan_per_month'
+  try {
+    applyHomeToStore()
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : '预算格式无效'
+    return
   }
+  const demand = demandStore.demand
   const errors = validateInitialDemand(demand)
   if (errors.length) {
     errorMessage.value = errors.join('；')
@@ -95,13 +91,14 @@ async function interpret(): Promise<void> {
         <view class="row field">
           <view>
             <text class="field-label">目标镇街</text>
-            <picker :range="towns" @change="onTownChange"><view class="picker">{{ selectedTown || '请选择' }}</view></picker>
+            <picker :range="metadata.towns" @change="onTownChange"><view class="picker">{{ selectedTown || '请选择' }}</view></picker>
           </view>
           <view>
             <text class="field-label">月租预算（元）</text>
-            <input v-model.number="budgetYuan" class="input" type="number" placeholder="可选" />
+            <input v-model="budgetYuan" class="input" type="digit" placeholder="可选，最多两位小数" />
           </view>
         </view>
+        <view v-if="metadata.notice" class="notice">{{ metadata.notice }}</view>
         <view class="row field">
           <view><text class="field-label">面积下限（㎡）</text><input v-model.number="areaMin" class="input" type="number" placeholder="如 1200" /></view>
           <view><text class="field-label">面积上限（㎡）</text><input v-model.number="areaMax" class="input" type="number" placeholder="如 1800" /></view>

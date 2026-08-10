@@ -28,17 +28,20 @@ const dimensionLabels: Record<string, string> = {
       <text>{{ card.verification }}核验</text><text>{{ card.source }}</text><text>更新 {{ result.listing.updated_at }}</text>
     </view>
     <view class="reason-list"><text v-for="reason in card.reasons" :key="reason">✓ {{ reason }}</text></view>
+    <view v-if="card.satisfiedHard.length" class="hard-ok"><text v-for="item in card.satisfiedHard" :key="item">✓ 已满足硬条件：{{ item }}</text></view>
+    <view v-if="card.blockedHard.length" class="hard-block"><text v-for="item in card.blockedHard" :key="item">× 阻塞提交：{{ item }}</text></view>
+    <view v-if="card.unmetPreferences.length" class="preference-list"><text v-for="item in card.unmetPreferences" :key="item">· 未满足偏好：{{ item }}</text></view>
     <view v-if="card.warnings.length" class="warning-list"><text v-for="warning in card.warnings" :key="warning">· {{ warning }}</text></view>
     <view class="divider" />
     <ScoreBar v-for="item in result.dimension_scores" :key="item.dimension" :label="dimensionLabels[item.dimension] ?? item.dimension" :score="item.score" :reason="item.reason" />
-    <button class="primary-button" :disabled="Boolean(busy)" @click="emit('contact', card.id)">联系顾问</button>
+    <button class="primary-button" :disabled="Boolean(busy) || card.submissionBlocked" @click="emit('contact', card.id)">{{ card.submissionBlocked ? '存在未满足或待核验硬条件' : '提交需求' }}</button>
   </view>
 </template>
 
 <style scoped>
 .listing-card { margin-bottom: 26rpx; }
 .card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20rpx; }
-.listing-title, .subtitle, .rent, .reason-list text, .warning-list text { display: block; }
+.listing-title, .subtitle, .rent, .reason-list text, .warning-list text, .hard-ok text, .hard-block text, .preference-list text { display: block; }
 .listing-title { color: #4b1418; font-size: 32rpx; font-weight: 900; }
 .subtitle { margin-top: 8rpx; color: #765e54; font-size: 24rpx; }
 .score { flex: 0 0 116rpx; text-align: center; color: #941d25; }
@@ -50,4 +53,8 @@ const dimensionLabels: Record<string, string> = {
 .reason-list, .warning-list { margin-top: 18rpx; font-size: 23rpx; line-height: 1.8; }
 .reason-list { color: #42633c; }
 .warning-list { padding: 12rpx 18rpx; border-radius: 12rpx; background: #fff1e5; color: #8d4a27; }
+.hard-ok, .hard-block, .preference-list { margin-top: 14rpx; font-size: 23rpx; line-height: 1.8; }
+.hard-ok { color: #42633c; }
+.hard-block { padding: 12rpx 18rpx; border-radius: 12rpx; background: #fff0f0; color: #9b1c24; }
+.preference-list { color: #8d641f; }
 </style>

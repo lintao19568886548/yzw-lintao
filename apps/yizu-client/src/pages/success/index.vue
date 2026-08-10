@@ -2,6 +2,7 @@
 import { onShow } from '@dcloudio/uni-app'
 import DemoBadge from '@/components/DemoBadge.vue'
 import { requireAuth } from '@/composables/useAuthGuard'
+import { restoreFlowState } from '@/composables/useDemandForm'
 import { useAuthStore } from '@/stores/auth'
 import { useDemandStore } from '@/stores/demand'
 
@@ -9,8 +10,7 @@ const auth = useAuthStore()
 const store = useDemandStore()
 
 onShow(() => {
-  auth.hydrate()
-  store.hydrate()
+  restoreFlowState(auth, store, () => undefined)
   if (!requireAuth(auth)) return
   if (!store.lead) uni.reLaunch({ url: '/pages/home/index' })
 })

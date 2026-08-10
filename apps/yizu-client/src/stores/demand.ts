@@ -1,8 +1,10 @@
 import { defineStore } from 'pinia'
 import type { DemandDraft, DemandInterpretation, LeadRecord, MatchResponse } from '@/types/domain'
-import { readJson, removeStored, writeJson } from '@/utils/storage'
+import { readVersionedJson, removeStored, writeVersionedJson } from '@/utils/storage'
 
-const DEMAND_STORAGE_KEY = 'yizu-miniapp-demand-v1'
+export const DEMAND_STORAGE_KEY = 'yizu-miniapp-demand-v2'
+const LEGACY_DEMAND_STORAGE_KEY = 'yizu-miniapp-demand-v1'
+const DEMAND_STORAGE_VERSION = 2
 
 export function emptyDemand(): DemandDraft {
   return {
@@ -28,6 +30,7 @@ export function emptyDemand(): DemandDraft {
     },
     hard_conditions: [],
     preference_conditions: [],
+    constraint_priorities: [],
     missing_fields: [],
     ai_confidence: 0,
   }
@@ -45,6 +48,22 @@ interface DemandState extends DemandSnapshot {
   interpreting: boolean
   matching: boolean
   submitting: boolean
+}
+
+function isDemandSnapshot(value: unknown): value is DemandSnapshot {
+  if (!value || typeof value !== 'object') return false
+  const snapshot = value as Partial<DemandSnapshot>
+  const demand = snapshot.demand as Partial<DemandDraft> | undefined
+  return Boolean(
+    demand
+    && typeof demand.raw_text === 'string'
+    && demand.constraints && typeof demand.constraints === 'object'
+    && Array.isArray(demand.hard_conditions)
+    && Array.isArray(demand.preference_conditions)
+    && Array.isArray(demand.constraint_priorities)
+    && Array.isArray(demand.missing_fields)
+    && typeof snapshot.idempotency_key === 'string',
+  )
 }
 
 export function newIdempotencyKey(now = Date.now(), random = Math.random()): string {
@@ -89,11 +108,12 @@ export const useDemandStore = defineStore('demand', {
       this.submitting = false
     },
     hydrate(): void {
-      const saved = readJson<DemandSnapshot>(DEMAND_STORAGE_KEY)
+      removeStored(LEGACY_DEMAND_STORAGE_KEY)
+      const saved = readVersionedJson(DEMAND_STORAGE_KEY, DEMAND_STORAGE_VERSION, isDemandSnapshot)
       if (saved) this.$patch(saved)
     },
     persist(): void {
-      writeJson<DemandSnapshot>(DEMAND_STORAGE_KEY, {
+      writeVersionedJson<DemandSnapshot>(DEMAND_STORAGE_KEY, DEMAND_STORAGE_VERSION, {
         demand: this.demand,
         interpretation: this.interpretation,
         match_response: this.match_response,
@@ -104,6 +124,7 @@ export const useDemandStore = defineStore('demand', {
     resetFlow(): void {
       this.$reset()
       removeStored(DEMAND_STORAGE_KEY)
+      removeStored(LEGACY_DEMAND_STORAGE_KEY)
     },
   },
 })

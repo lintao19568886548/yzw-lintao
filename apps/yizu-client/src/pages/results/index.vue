@@ -6,6 +6,7 @@ import ListingCard from '@/components/ListingCard.vue'
 import { miniappApi } from '@/api/miniapp'
 import { mapApiError } from '@/api/client'
 import { requireAuth } from '@/composables/useAuthGuard'
+import { restoreFlowState } from '@/composables/useDemandForm'
 import { useAuthStore } from '@/stores/auth'
 import { useDemandStore } from '@/stores/demand'
 
@@ -14,14 +15,19 @@ const store = useDemandStore()
 const errorMessage = ref('')
 
 onShow(() => {
-  auth.hydrate()
-  store.hydrate()
+  restoreFlowState(auth, store, () => undefined)
   if (!requireAuth(auth)) return
   if (!store.match_response) uni.reLaunch({ url: '/pages/home/index' })
 })
 
 async function contact(listingId: string): Promise<void> {
   if (!requireAuth(auth) || !store.beginLeadSubmission()) return
+  const result = store.match_response?.matches.find((item) => item.listing.listing_id === listingId)
+  if (!result || result.unmet_hard_constraints.length || result.unverified_hard_constraints.length) {
+    errorMessage.value = '该房源存在未满足或无法验证的硬条件，不能自动生成线索。'
+    store.finishLeadSubmission()
+    return
+  }
   errorMessage.value = ''
   try {
     const lead = await miniappApi.submitLead({
