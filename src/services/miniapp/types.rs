@@ -15,6 +15,34 @@ pub enum RentUnit {
     YuanPerSquareMetreMonth,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ConstraintKey {
+    Budget,
+    FreightElevator,
+    ElevatorCapacity,
+    PowerCapacity,
+    FireSafety,
+    TruckAccess,
+    LoadingDock,
+    Sublease,
+    Floor,
+    MoveIn,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ConstraintLevel {
+    Hard,
+    Preference,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ConstraintPriority {
+    pub key: ConstraintKey,
+    pub level: ConstraintLevel,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default)]
 pub struct DemandConstraints {
     pub space_type: Option<SpaceType>,
@@ -42,6 +70,8 @@ pub struct DemandDraft {
     pub constraints: DemandConstraints,
     pub hard_conditions: Vec<String>,
     pub preference_conditions: Vec<String>,
+    #[serde(default)]
+    pub constraint_priorities: Vec<ConstraintPriority>,
     pub missing_fields: Vec<String>,
     pub ai_confidence: f32,
 }
@@ -107,6 +137,13 @@ pub struct MatchDimensionScore {
     pub reason: String,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ConstraintAssessment {
+    pub key: Option<ConstraintKey>,
+    pub label: String,
+    pub detail: String,
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct MatchResult {
     pub listing: ListingSummary,
@@ -114,6 +151,10 @@ pub struct MatchResult {
     pub dimension_scores: Vec<MatchDimensionScore>,
     pub recommendation_reasons: Vec<String>,
     pub unmet_conditions: Vec<String>,
+    pub satisfied_hard_constraints: Vec<ConstraintAssessment>,
+    pub unmet_hard_constraints: Vec<ConstraintAssessment>,
+    pub unverified_hard_constraints: Vec<ConstraintAssessment>,
+    pub unmet_preferences: Vec<ConstraintAssessment>,
     pub area_relaxed: bool,
     pub data_gaps: Vec<String>,
 }
@@ -233,5 +274,9 @@ pub struct MetadataOptions {
     pub space_types: Vec<String>,
     pub rent_units: Vec<String>,
     pub verification_levels: Vec<String>,
+    pub constraint_keys: Vec<String>,
+    pub business_timezone: String,
+    pub currency_storage_unit: String,
+    pub currency_display_unit: String,
     pub demo_data: bool,
 }

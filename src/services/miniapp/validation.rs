@@ -1,6 +1,9 @@
 use serde::Serialize;
 
-use super::types::{ApiFieldError, DemandDraft};
+use super::{
+    clock::parse_iso_date,
+    types::{ApiFieldError, ConstraintKey, DemandDraft},
+};
 
 pub const MAX_REQUEST_BYTES: usize = 64 * 1024;
 pub const MAX_RAW_TEXT_CHARS: usize = 1_000;
@@ -130,11 +133,23 @@ pub fn validate_demand(demand: &DemandDraft, require_complete: bool) -> Vec<ApiF
         )),
     }
 
+    if constraints
+        .rent_min_cents
+        .is_some_and(|value| value > 10_000_000_000)
+        || constraints
+            .rent_max_cents
+            .is_some_and(|value| value > 10_000_000_000)
+    {
+        errors.push(field_error(
+            "constraints.rent_max_cents",
+            "租金预算不能超过100000000元",
+        ));
+    }
     if let (Some(min), Some(max)) = (constraints.rent_min_cents, constraints.rent_max_cents) {
-        if min > max || max > 10_000_000_000 {
+        if min > max {
             errors.push(field_error(
                 "constraints.rent_max_cents",
-                "租金预算范围无效",
+                "租金预算下限不能高于上限",
             ));
         }
     }
@@ -202,6 +217,16 @@ pub fn validate_demand(demand: &DemandDraft, require_complete: bool) -> Vec<ApiF
             }
         }
     }
+    if let Some(value) = constraints.move_in_time.as_deref() {
+        if !matches!(value, "immediate" | "within_30_days" | "within_90_days")
+            && parse_iso_date(value).is_err()
+        {
+            errors.push(field_error(
+                "constraints.move_in_time",
+                "入驻时间必须为immediate、within_30_days、within_90_days或有效YYYY-MM-DD日期",
+            ));
+        }
+    }
     if !demand.ai_confidence.is_finite() || !(0.0..=1.0).contains(&demand.ai_confidence) {
         errors.push(field_error("ai_confidence", "AI置信度必须在0到1之间"));
     }
@@ -226,7 +251,46 @@ pub fn validate_demand(demand: &DemandDraft, require_complete: bool) -> Vec<ApiF
             }
         }
     }
+    if demand.constraint_priorities.len() > 10 {
+        errors.push(field_error(
+            "constraint_priorities",
+            "结构化条件优先级最多10项",
+        ));
+    }
+    let mut priority_keys = std::collections::BTreeSet::new();
+    for priority in &demand.constraint_priorities {
+        if !priority_keys.insert(priority.key.clone()) {
+            errors.push(field_error(
+                "constraint_priorities",
+                format!("结构化条件重复：{:?}", priority.key),
+            ));
+        }
+        if !constraint_has_value(demand, &priority.key) {
+            errors.push(field_error(
+                "constraint_priorities",
+                format!("结构化条件没有对应值：{:?}", priority.key),
+            ));
+        }
+    }
     errors
+}
+
+pub fn constraint_has_value(demand: &DemandDraft, key: &ConstraintKey) -> bool {
+    let constraints = &demand.constraints;
+    match key {
+        ConstraintKey::Budget => {
+            constraints.rent_max_cents.is_some() && constraints.rent_unit.is_some()
+        }
+        ConstraintKey::FreightElevator => constraints.needs_freight_elevator == Some(true),
+        ConstraintKey::ElevatorCapacity => constraints.elevator_min_tons.is_some(),
+        ConstraintKey::PowerCapacity => constraints.power_capacity_kva.is_some(),
+        ConstraintKey::FireSafety => constraints.fire_requirement.is_some(),
+        ConstraintKey::TruckAccess => constraints.logistics_requirement.is_some(),
+        ConstraintKey::LoadingDock => constraints.loading_requirement.is_some(),
+        ConstraintKey::Sublease => constraints.accepts_sublease.is_some(),
+        ConstraintKey::Floor => constraints.floor_preference.is_some(),
+        ConstraintKey::MoveIn => constraints.move_in_time.is_some(),
+    }
 }
 
 pub fn validate_idempotency_key(value: &str) -> Result<(), ApiFieldError> {
@@ -308,6 +372,18 @@ mod tests {
         assert!(validate_demand(&demand, false)
             .iter()
             .any(|error| error.field == "constraints.other_notes"));
+    }
+
+    #[test]
+    fn 非法入驻日期被拒绝() {
+        let mut demand = DemandDraft {
+            raw_text: "需要厂房".into(),
+            ..Default::default()
+        };
+        demand.constraints.move_in_time = Some("2025-02-29".into());
+        assert!(validate_demand(&demand, false)
+            .iter()
+            .any(|error| error.field == "constraints.move_in_time"));
     }
 
     #[test]

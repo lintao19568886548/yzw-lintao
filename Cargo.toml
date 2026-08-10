@@ -55,8 +55,10 @@ calamine = { version = "0.36", optional = true }
 rust_xlsxwriter = { version = "0.96", optional = true }
 
 [dev-dependencies]
+axum = "0.8"
 dioxus-history = "0.7.9"
 dioxus-ssr = "0.7.9"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "sync"] }
 
 [features]
 default = ["web"]

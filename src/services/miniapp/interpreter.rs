@@ -1,7 +1,10 @@
 use std::future::Future;
 
 use super::{
-    types::{DemandDraft, DemandInterpretation, RentUnit, SpaceType},
+    types::{
+        ConstraintKey, ConstraintLevel, ConstraintPriority, DemandDraft, DemandInterpretation,
+        RentUnit, SpaceType,
+    },
     validation::{sanitize_user_text, validate_demand, DONGGUAN_TOWNS, MAX_RAW_TEXT_CHARS},
 };
 
@@ -70,6 +73,7 @@ pub fn interpret_local(mut draft: DemandDraft) -> Result<DemandDraft, String> {
             draft.constraints.rent_min_cents = Some(min);
             draft.constraints.rent_max_cents = Some(max);
             draft.constraints.rent_unit = Some(unit);
+            classify_constraint(&text, "预算", ConstraintKey::Budget, &mut draft);
         }
     }
 
@@ -79,13 +83,16 @@ pub fn interpret_local(mut draft: DemandDraft) -> Result<DemandDraft, String> {
             draft.constraints.elevator_min_tons =
                 number_before_keyword(&text, &["吨货梯", "吨电梯"]).map(|number| number as f32);
         }
-        classify_condition(&text, "货梯", "需要货梯", &mut draft);
+        classify_constraint(&text, "货梯", ConstraintKey::FreightElevator, &mut draft);
+        if draft.constraints.elevator_min_tons.is_some() {
+            classify_constraint(&text, "电梯", ConstraintKey::ElevatorCapacity, &mut draft);
+        }
     }
 
     if draft.constraints.power_capacity_kva.is_none() {
         if let Some(value) = number_before_keyword(&text, &["kva", "千伏安", "kw", "千瓦"]) {
             draft.constraints.power_capacity_kva = Some(value.round() as u32);
-            classify_condition(&text, "用电", "用电容量", &mut draft);
+            classify_constraint(&text, "用电", ConstraintKey::PowerCapacity, &mut draft);
         } else if text.contains("变压器") || text.contains("较大用电") || text.contains("大用电")
         {
             draft
@@ -99,7 +106,7 @@ pub fn interpret_local(mut draft: DemandDraft) -> Result<DemandDraft, String> {
         for rating in ["甲类", "乙类", "丙类", "丁类", "戊类"] {
             if text.contains(rating) && text.contains("消防") {
                 draft.constraints.fire_requirement = Some(format!("{rating}消防"));
-                classify_condition(&text, "消防", "消防要求", &mut draft);
+                classify_constraint(&text, "消防", ConstraintKey::FireSafety, &mut draft);
                 break;
             }
         }
@@ -107,30 +114,38 @@ pub fn interpret_local(mut draft: DemandDraft) -> Result<DemandDraft, String> {
 
     if draft.constraints.move_in_time.is_none() {
         draft.constraints.move_in_time = parse_move_in_time(&text);
+        if draft.constraints.move_in_time.is_some() {
+            classify_constraint(&text, "入驻", ConstraintKey::MoveIn, &mut draft);
+        }
     }
     if draft.constraints.floor_preference.is_none() {
         draft.constraints.floor_preference = ["一楼", "首层", "高楼层", "低楼层"]
             .into_iter()
             .find(|value| text.contains(value))
             .map(str::to_string);
+        if draft.constraints.floor_preference.is_some() {
+            classify_constraint(&text, "楼层", ConstraintKey::Floor, &mut draft);
+        }
     }
     if draft.constraints.logistics_requirement.is_none()
         && (text.contains("大车") || text.contains("货车") || text.contains("物流"))
     {
         draft.constraints.logistics_requirement = Some("支持货车通行".into());
-        classify_condition(&text, "货车", "货车通行", &mut draft);
+        classify_constraint(&text, "货车", ConstraintKey::TruckAccess, &mut draft);
     }
     if draft.constraints.loading_requirement.is_none()
         && (text.contains("装卸") || text.contains("卸货") || text.contains("月台"))
     {
         draft.constraints.loading_requirement = Some("需要装卸区或月台".into());
-        classify_condition(&text, "装卸", "装卸条件", &mut draft);
+        classify_constraint(&text, "装卸", ConstraintKey::LoadingDock, &mut draft);
     }
     if draft.constraints.accepts_sublease.is_none() {
         if text.contains("不接受分租") || text.contains("必须整租") {
             draft.constraints.accepts_sublease = Some(false);
+            classify_constraint(&text, "分租", ConstraintKey::Sublease, &mut draft);
         } else if text.contains("接受分租") || text.contains("可以分租") {
             draft.constraints.accepts_sublease = Some(true);
+            classify_constraint(&text, "分租", ConstraintKey::Sublease, &mut draft);
         }
     }
 
@@ -163,6 +178,12 @@ pub fn interpret_local(mut draft: DemandDraft) -> Result<DemandDraft, String> {
     draft.ai_confidence = (0.4 + filled as f32 * 0.055).min(0.95);
     dedupe(&mut draft.hard_conditions);
     dedupe(&mut draft.preference_conditions);
+    draft
+        .constraint_priorities
+        .sort_by(|left, right| left.key.cmp(&right.key));
+    draft
+        .constraint_priorities
+        .dedup_by(|left, right| left.key == right.key);
 
     let errors = validate_demand(&draft, false);
     if let Some(error) = errors.first() {
@@ -207,30 +228,58 @@ fn parse_rent(text: &str) -> Option<(u64, u64, RentUnit)> {
         || text.contains("元每平每月");
     let budget_pos = text.find("预算").or_else(|| text.find("月租"))?;
     let segment = head_chars(&text[budget_pos..], 36);
-    let numbers = numbers_in(segment);
+    let numbers = number_tokens_in(segment);
     if numbers.is_empty() {
         return None;
     }
-    let multiplier = if segment.contains('万') {
-        10_000.0
-    } else {
-        1.0
-    };
-    let last = numbers[numbers.len() - 1] * multiplier * 100.0;
+    let multiplier = if segment.contains('万') { 10_000 } else { 1 };
+    let last = yuan_token_to_cents(&numbers[numbers.len() - 1], multiplier)?;
     let first = if numbers.len() >= 2 && segment.contains('-') {
-        numbers[numbers.len() - 2] * multiplier * 100.0
+        yuan_token_to_cents(&numbers[numbers.len() - 2], multiplier)?
     } else {
-        0.0
+        0
     };
     Some((
-        first.round() as u64,
-        last.round() as u64,
+        first,
+        last,
         if per_sqm {
             RentUnit::YuanPerSquareMetreMonth
         } else {
             RentUnit::YuanPerMonth
         },
     ))
+}
+
+fn number_tokens_in(value: &str) -> Vec<String> {
+    let mut output = Vec::new();
+    let mut current = String::new();
+    for character in value.chars().chain(std::iter::once(' ')) {
+        if character.is_ascii_digit() || (character == '.' && !current.contains('.')) {
+            current.push(character);
+        } else if !current.is_empty() {
+            output.push(std::mem::take(&mut current));
+        }
+    }
+    output
+}
+
+fn yuan_token_to_cents(value: &str, multiplier: u64) -> Option<u64> {
+    let (whole, fraction) = value.split_once('.').unwrap_or((value, ""));
+    if whole.is_empty() || fraction.len() > 2 || !fraction.bytes().all(|byte| byte.is_ascii_digit())
+    {
+        return None;
+    }
+    let whole = whole.parse::<u64>().ok()?;
+    let fraction = match fraction.len() {
+        0 => 0,
+        1 => fraction.parse::<u64>().ok()?.checked_mul(10)?,
+        2 => fraction.parse::<u64>().ok()?,
+        _ => return None,
+    };
+    whole
+        .checked_mul(100)?
+        .checked_add(fraction)?
+        .checked_mul(multiplier)
 }
 
 fn number_before_keyword(text: &str, keywords: &[&str]) -> Option<f64> {
@@ -303,16 +352,27 @@ fn parse_move_in_time(text: &str) -> Option<String> {
     }
 }
 
-fn classify_condition(text: &str, keyword: &str, label: &str, draft: &mut DemandDraft) {
+fn classify_constraint(text: &str, keyword: &str, key: ConstraintKey, draft: &mut DemandDraft) {
     let preference = text.contains(&format!("最好{keyword}"))
         || text.contains(&format!("优先{keyword}"))
         || text.contains(&format!("希望{keyword}"));
-    if preference {
-        draft.preference_conditions.push(label.into());
+    let level = if preference {
+        ConstraintLevel::Preference
     } else if text.contains("必须") || text.contains("需要") || text.contains("要求") {
-        draft.hard_conditions.push(label.into());
+        ConstraintLevel::Hard
     } else {
-        draft.preference_conditions.push(label.into());
+        ConstraintLevel::Preference
+    };
+    if let Some(existing) = draft
+        .constraint_priorities
+        .iter_mut()
+        .find(|priority| priority.key == key)
+    {
+        existing.level = level;
+    } else {
+        draft
+            .constraint_priorities
+            .push(ConstraintPriority { key, level });
     }
 }
 
@@ -387,7 +447,7 @@ pub mod bailian {
                 "max_tokens": 1200,
                 "response_format": { "type": "json_object" },
                 "messages": [
-                    { "role": "system", "content": "你是东莞工业空间需求解析器。只返回一个严格 JSON 对象，字段必须与给定 demand schema 一致；无法确认的值使用 null 或空数组，禁止猜测，软偏好不得写入 hard_conditions。" },
+                    { "role": "system", "content": "你是东莞工业空间需求解析器。只返回一个严格 JSON 对象，字段必须与给定 demand schema 一致；支持字段使用constraint_priorities的类型化key和hard/preference级别；无法确认的值使用null或空数组，禁止猜测；hard_conditions只保留无法映射的其他硬条件。" },
                     { "role": "user", "content": serde_json::json!({
                         "raw_text": draft.raw_text,
                         "known_draft": draft,
@@ -538,10 +598,10 @@ mod tests {
         assert_eq!(result.constraints.area_max_sqm, Some(1650));
         assert_eq!(result.constraints.elevator_min_tons, Some(3.0));
         assert_eq!(result.constraints.power_capacity_kva, Some(500));
-        assert!(result
-            .hard_conditions
-            .iter()
-            .any(|value| value.contains("货梯")));
+        assert!(result.constraint_priorities.iter().any(|priority| {
+            priority.key == ConstraintKey::FreightElevator
+                && priority.level == ConstraintLevel::Hard
+        }));
     }
 
     #[test]
@@ -558,15 +618,22 @@ mod tests {
     }
 
     #[test]
+    fn 小数元预算安全转换为整数分() {
+        let result =
+            interpret_local(draft("寮步1000平仓库，预算28.5元/平/月")).expect("local parser");
+        assert_eq!(result.constraints.rent_max_cents, Some(2850));
+    }
+
+    #[test]
     fn 不猜测缺失的必要字段() {
         let result = interpret_local(draft("希望物流方便，最好有货梯")).expect("local parser");
         assert_eq!(
             result.missing_fields,
             vec!["space_type", "target_towns", "area_range"]
         );
-        assert!(result
-            .preference_conditions
-            .iter()
-            .any(|value| value.contains("货梯")));
+        assert!(result.constraint_priorities.iter().any(|priority| {
+            priority.key == ConstraintKey::FreightElevator
+                && priority.level == ConstraintLevel::Preference
+        }));
     }
 }
