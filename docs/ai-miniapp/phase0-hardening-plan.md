@@ -211,7 +211,7 @@ SpacetimeDB module 继续以 `access.rs`/`reducers/shared/access.rs` 为底层�
 
 ### P0-01 破坏性操作盘点与永久禁用规则
 
-- **实施状态（2026-08-10）**：已在 `phase0/p0-01-disable-destructive-ops` 分支完成仓库侧实施与本地验证，证据见 `docs/ai-miniapp/evidence/p0-01-destructive-operations.md`。未连接、部署或重启任何服务器；现网是否加载这些变更不在本地任务中推断。
+- **实施状态（2026-08-10）**：原始提交 `93c0b1c31b8db348e0a91e965dcc4eb7d0f3f7fb` 因真实 POST/PUT 发布路由未阻断、生产 Nginx 失败放行和 `--yes=all` 权限过宽而未通过独立复核；当前分支已追加完成对应仓库侧整改，并通过动态生产路径扫描、路由矩阵、Shell、Docker 最小 Nginx 语法、workspace 编译和主应用测试，状态恢复为“仓库侧完成、待三方验收及隔离测试环境验证”。证据见 `docs/ai-miniapp/evidence/p0-01-destructive-operations.md`。未连接、部署或重启任何服务器；现网是否加载这些变更不在本地任务中推断。
 - **依赖/负责人/工期**：无；Security/DevOps + Rust；1 人日。
 - **实施**：建立 D0–D3 分级清单；生产禁止 D0；删除清库/force/任意命令设计入口；生产对象物理删除在 P0-05 完成恢复机制前失败关闭；自动扫描生产路径中的危险参数、动态 shell、递归删除和数据库删除命令。
 - **预计修改文件**：`.github/workflows/deploy-production.yml`、`deploy/scripts/remote_deploy.sh`、`src/services/storage/r2_cleanup.rs`、`README.md`、`deploy/README.md`、`server/AGENTS.md`、`server/.github/copilot-instructions.md`、`server/README.md`、`server/ARCHITECTURE.md`、`server/ARCHITECTURE.html`；新增 `docs/ai-miniapp/evidence/p0-01-destructive-operations.md`、`scripts/check-production-destructive-ops.ps1`。

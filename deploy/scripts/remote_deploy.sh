@@ -46,6 +46,11 @@ if [ "$DEPLOY_ENVIRONMENT" = "production" ]; then
   done < <(compgen -e)
 fi
 
+if [ "$DEPLOY_ENVIRONMENT" = "production" ] && [ "$ENABLE_NGINX" != "true" ]; then
+  echo "部署失败：生产环境必须启用 Nginx 管理路由保护。"
+  exit 1
+fi
+
 if [[ ! "$WORK_DIR" =~ ^/tmp/yizu-deploy\.[A-Za-z0-9_-]+$ ]] || [ ! -d "$WORK_DIR" ]; then
   echo "部署失败：部署工作目录缺失或不在允许的临时目录范围内。"
   exit 1
@@ -86,25 +91,135 @@ $PRIVILEGED_PREFIX install -m 0600 -o root -g root "$RUNTIME_ENV" "$APP_ROOT/.en
 # 运行服务前确认文件权限
 chmod +x "$CURRENT_DIR/server"
 
-if [ "$ENABLE_NGINX" = "true" ] && [ -f "$WORK_DIR/$NGINX_CONF_NAME" ] && command -v nginx >/dev/null 2>&1; then
-  echo "更新 Nginx 配置（443/TCP -> Dioxus，1314/TCP -> SpacetimeDB）..."
+NGINX_SOURCE="$WORK_DIR/$NGINX_CONF_NAME"
+NGINX_TARGET=""
+NGINX_BIN=""
+NGINX_BACKUP=""
+NGINX_HAD_ORIGINAL="false"
+NGINX_INSTALLED="false"
+NGINX_LINK_PATH=""
+NGINX_LINK_PREVIOUS=""
+NGINX_LINK_WAS_PRESENT="false"
+
+rollback_nginx_config() {
+  local rollback_ok="true"
+
+  if [ "$NGINX_INSTALLED" != "true" ]; then
+    return 0
+  fi
+
+  if [ "$NGINX_HAD_ORIGINAL" = "true" ]; then
+    if ! $PRIVILEGED_PREFIX cp -p "$NGINX_BACKUP" "$NGINX_TARGET"; then
+      rollback_ok="false"
+    fi
+  elif ! $PRIVILEGED_PREFIX rm -f -- "$NGINX_TARGET"; then
+    rollback_ok="false"
+  fi
+
+  if [ -n "$NGINX_LINK_PATH" ]; then
+    if [ "$NGINX_LINK_WAS_PRESENT" = "true" ]; then
+      if ! $PRIVILEGED_PREFIX ln -sfn "$NGINX_LINK_PREVIOUS" "$NGINX_LINK_PATH"; then
+        rollback_ok="false"
+      fi
+    elif ! $PRIVILEGED_PREFIX rm -f -- "$NGINX_LINK_PATH"; then
+      rollback_ok="false"
+    fi
+  fi
+
+  if [ "$rollback_ok" = "true" ] &&
+    $PRIVILEGED_PREFIX "$NGINX_BIN" -t >/dev/null 2>&1 &&
+    $PRIVILEGED_PREFIX systemctl reload nginx >/dev/null 2>&1; then
+    echo "Nginx 安全回滚已完成。"
+    return 0
+  fi
+
+  echo "Nginx 安全回滚未完整成功，需要人工保持发布停止状态。" >&2
+  return 1
+}
+
+fail_nginx_install() {
+  local failure_code="$1"
+  if [ "$NGINX_INSTALLED" = "true" ]; then
+    rollback_nginx_config || return 1
+  fi
+  echo "部署失败：Nginx 安全门禁未通过（${failure_code}）。" >&2
+  return 1
+}
+
+if [ "$ENABLE_NGINX" = "true" ]; then
+  if [[ ! "$NGINX_CONF_NAME" =~ ^[A-Za-z0-9._-]+$ ]]; then
+    fail_nginx_install "invalid-config-name"
+    exit 1
+  fi
+  if [ ! -f "$NGINX_SOURCE" ]; then
+    fail_nginx_install "missing-config"
+    exit 1
+  fi
+  if ! grep -Fq "P0-01-PRODUCTION-MANAGEMENT-ROUTE-DENY" "$NGINX_SOURCE"; then
+    fail_nginx_install "missing-route-deny-marker"
+    exit 1
+  fi
+  if ! NGINX_BIN="$(command -v nginx)"; then
+    fail_nginx_install "missing-nginx"
+    exit 1
+  fi
+
   if [ -d "/etc/nginx/conf.d" ]; then
-    $PRIVILEGED_PREFIX cp "$WORK_DIR/$NGINX_CONF_NAME" /etc/nginx/conf.d/"$NGINX_CONF_NAME"
-  elif [ -d "/etc/nginx/sites-available" ]; then
-    $PRIVILEGED_PREFIX cp "$WORK_DIR/$NGINX_CONF_NAME" /etc/nginx/sites-available/"$NGINX_CONF_NAME"
-    if [ -d "/etc/nginx/sites-enabled" ] && [ ! -L "/etc/nginx/sites-enabled/$NGINX_CONF_NAME" ]; then
-      $PRIVILEGED_PREFIX ln -sfn "/etc/nginx/sites-available/$NGINX_CONF_NAME" "/etc/nginx/sites-enabled/$NGINX_CONF_NAME"
+    NGINX_TARGET="/etc/nginx/conf.d/$NGINX_CONF_NAME"
+  elif [ -d "/etc/nginx/sites-available" ] && [ -d "/etc/nginx/sites-enabled" ]; then
+    NGINX_TARGET="/etc/nginx/sites-available/$NGINX_CONF_NAME"
+    NGINX_LINK_PATH="/etc/nginx/sites-enabled/$NGINX_CONF_NAME"
+    if [ -L "$NGINX_LINK_PATH" ]; then
+      NGINX_LINK_PREVIOUS="$(readlink "$NGINX_LINK_PATH")"
+      NGINX_LINK_WAS_PRESENT="true"
+    elif [ -e "$NGINX_LINK_PATH" ]; then
+      fail_nginx_install "unsupported-enabled-entry"
+      exit 1
     fi
   else
-    echo "未检测到 /etc/nginx/conf.d 或 /etc/nginx/sites-available，跳过 Nginx 配置。"
-    echo "你可以手动将 $WORK_DIR/$NGINX_CONF_NAME 安装到你的 Nginx 配置目录。"
+    fail_nginx_install "unsupported-config-directory"
+    exit 1
   fi
-  if command -v nginx >/dev/null 2>&1; then
-    $PRIVILEGED_PREFIX nginx -t
-    $PRIVILEGED_PREFIX systemctl reload nginx || true
+
+  $PRIVILEGED_PREFIX install -d -m 0750 /var/backups/yizu-nginx
+  if [ -e "$NGINX_TARGET" ]; then
+    NGINX_BACKUP="$($PRIVILEGED_PREFIX mktemp "/var/backups/yizu-nginx/${NGINX_CONF_NAME}.XXXXXXXX.bak")"
+    $PRIVILEGED_PREFIX cp -p "$NGINX_TARGET" "$NGINX_BACKUP"
+    NGINX_HAD_ORIGINAL="true"
   fi
+
+  NGINX_INSTALLED="true"
+  if ! $PRIVILEGED_PREFIX install -m 0644 "$NGINX_SOURCE" "$NGINX_TARGET"; then
+    fail_nginx_install "install-config"
+    exit 1
+  fi
+  if [ -n "$NGINX_LINK_PATH" ]; then
+    if ! $PRIVILEGED_PREFIX ln -sfn "$NGINX_TARGET" "$NGINX_LINK_PATH"; then
+      fail_nginx_install "enable-config"
+      exit 1
+    fi
+  fi
+
+  if ! $PRIVILEGED_PREFIX "$NGINX_BIN" -t >/dev/null 2>&1; then
+    fail_nginx_install "syntax-check"
+    exit 1
+  fi
+  if ! $PRIVILEGED_PREFIX systemctl reload nginx >/dev/null 2>&1; then
+    fail_nginx_install "reload"
+    exit 1
+  fi
+  if ! $PRIVILEGED_PREFIX systemctl is-active --quiet nginx; then
+    fail_nginx_install "inactive-after-reload"
+    exit 1
+  fi
+  if ! $PRIVILEGED_PREFIX "$NGINX_BIN" -T 2>/dev/null |
+    grep -Fq "P0-01-PRODUCTION-MANAGEMENT-ROUTE-DENY"; then
+    fail_nginx_install "loaded-marker-missing"
+    exit 1
+  fi
+  echo "Nginx 管理路由保护检查通过。"
 else
-  echo "未检测到 Nginx 服务或配置文件，跳过反代配置。"
+  echo "非生产环境未启用 Nginx 配置安装，已按显式设置跳过。"
 fi
 
 echo "重启 Dioxus 服务..."
@@ -124,7 +239,9 @@ if [ "$SPACETIME_PUBLISH_ENABLED" = "true" ]; then
     $PRIVILEGED_PREFIX runuser -u spacetimedb -- "$SPACETIME_CLI" --root-dir=/stdb publish "$SPACETIME_DB_NAME" \
       --bin-path "/stdb/modules/$SPACETIME_WASM" \
       --server "$SPACETIME_SERVER" \
-      --yes=all
+      --delete-data=never \
+      --yes=remote \
+      --yes=skip-login
   else
     echo "跳过 Spacetime 发布：未检测到 spacetime CLI。"
   fi
