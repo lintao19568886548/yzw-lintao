@@ -1,0 +1,24 @@
+{
+  "name": "宜租网AI找房演示",
+  "appid": "__UNI__YIZU_AI_DEMO",
+  "description": "宜租网第一条AI找房业务垂直切片",
+  "versionName": "0.1.0",
+  "versionCode": "100",
+  "transformPx": false,
+  "uniStatistics": {
+    "enable": false
+  },
+  "h5": {
+    "title": "宜租网 · AI找房",
+    "router": { "mode": "hash" }
+  },
+  "mp-weixin": {
+    "appid": "",
+    "setting": {
+      "urlCheck": false,
+      "es6": true,
+      "minified": true
+    },
+    "usingComponents": true
+  }
+}

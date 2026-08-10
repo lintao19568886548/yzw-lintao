@@ -1,0 +1,36 @@
+page {
+  min-height: 100%;
+  background: #f7f2e8;
+  color: #291a16;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+view, text, input, textarea, button, picker {
+  box-sizing: border-box;
+}
+
+button::after { border: 0; }
+
+.page-shell { min-height: 100vh; padding: 28rpx; }
+.content-width { width: 100%; max-width: 1120rpx; margin: 0 auto; }
+.card { background: rgba(255, 253, 247, .98); border: 1rpx solid #e8d7b7; border-radius: 28rpx; box-shadow: 0 16rpx 44rpx rgba(91, 39, 29, .08); padding: 32rpx; }
+.section-title { display: block; margin-bottom: 20rpx; color: #6e1119; font-size: 34rpx; font-weight: 800; }
+.section-subtitle { color: #7f6b62; font-size: 25rpx; line-height: 1.7; }
+.field { margin-top: 24rpx; }
+.field-label { display: block; margin-bottom: 12rpx; color: #4b3129; font-size: 26rpx; font-weight: 700; }
+.input, .textarea, .picker { width: 100%; border: 1rpx solid #dcc8a5; border-radius: 18rpx; background: #fffdf9; color: #291a16; font-size: 28rpx; padding: 22rpx 24rpx; }
+.textarea { min-height: 220rpx; line-height: 1.7; }
+.picker { min-height: 80rpx; }
+.row { display: flex; gap: 18rpx; }
+.row > * { flex: 1; min-width: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 14rpx; }
+.chip { margin: 0; padding: 12rpx 24rpx; border-radius: 999rpx; background: #f3e7cf; color: #6e1119; font-size: 25rpx; line-height: 1.4; }
+.chip.active { background: #981d24; color: #fff8e4; box-shadow: 0 8rpx 18rpx rgba(143, 23, 32, .2); }
+.primary-button, .secondary-button { width: 100%; margin-top: 28rpx; border-radius: 20rpx; font-size: 29rpx; font-weight: 800; line-height: 2.8; }
+.primary-button { background: linear-gradient(135deg, #9f1f27, #711018); color: #fff8e4; box-shadow: 0 14rpx 28rpx rgba(124, 19, 27, .24); }
+.primary-button[disabled] { opacity: .5; }
+.secondary-button { border: 1rpx solid #9f1f27; background: #fff9ed; color: #8f1720; }
+.notice { margin-top: 20rpx; padding: 20rpx 24rpx; border-radius: 16rpx; background: #fff0dc; color: #6e411e; font-size: 24rpx; line-height: 1.6; }
+.error { margin-top: 16rpx; color: #b4232c; font-size: 25rpx; line-height: 1.6; }
+.muted { color: #8a756c; font-size: 24rpx; }
+.divider { height: 1rpx; margin: 28rpx 0; background: #eadcc2; }

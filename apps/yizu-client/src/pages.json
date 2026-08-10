@@ -1,0 +1,15 @@
+{
+  "pages": [
+    { "path": "pages/login/index", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/home/index", "style": { "navigationStyle": "custom" } },
+    { "path": "pages/confirm/index", "style": { "navigationBarTitleText": "确认找房需求", "navigationBarBackgroundColor": "#8f1720", "navigationBarTextStyle": "white" } },
+    { "path": "pages/results/index", "style": { "navigationBarTitleText": "AI推荐房源", "navigationBarBackgroundColor": "#8f1720", "navigationBarTextStyle": "white" } },
+    { "path": "pages/success/index", "style": { "navigationBarTitleText": "提交成功", "navigationBarBackgroundColor": "#8f1720", "navigationBarTextStyle": "white" } }
+  ],
+  "globalStyle": {
+    "backgroundColor": "#f7f2e8",
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "宜租网",
+    "navigationBarBackgroundColor": "#f7f2e8"
+  }
+}
