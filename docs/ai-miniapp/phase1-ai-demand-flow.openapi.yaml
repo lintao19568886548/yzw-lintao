@@ -1,8 +1,10 @@
 openapi: 3.1.0
 info:
   title: 宜租网 AI 找房 BFF API
-  version: 0.1.0
-  description: 本地演示垂直切片；不代表生产数据持久化或真实顾问通知。
+  version: 0.2.0
+  description: >-
+    本地演示垂直切片；API/Rust 金额均为整数分，用户界面仅显示元。
+    业务日期按 Asia/Shanghai 解释；不代表生产数据持久化或真实顾问通知。
 servers:
   - url: http://127.0.0.1:8080/api/miniapp/v1
     description: 本地 Dioxus BFF
@@ -122,6 +124,19 @@ components:
     RentUnit:
       type: string
       enum: [yuan_per_month, yuan_per_square_metre_month]
+    ConstraintKey:
+      type: string
+      enum: [budget, freight_elevator, elevator_capacity, power_capacity, fire_safety, truck_access, loading_dock, sublease, floor, move_in]
+    ConstraintLevel:
+      type: string
+      enum: [hard, preference]
+    ConstraintPriority:
+      type: object
+      additionalProperties: false
+      required: [key, level]
+      properties:
+        key: { $ref: '#/components/schemas/ConstraintKey' }
+        level: { $ref: '#/components/schemas/ConstraintLevel' }
     DemandConstraints:
       type: object
       required:
@@ -151,11 +166,13 @@ components:
           items: { type: string }
         area_min_sqm: { type: [integer, 'null'], minimum: 1 }
         area_max_sqm: { type: [integer, 'null'], minimum: 1 }
-        rent_min_cents: { type: [integer, 'null'], minimum: 0 }
-        rent_max_cents: { type: [integer, 'null'], minimum: 0 }
+        rent_min_cents: { type: [integer, 'null'], minimum: 0, maximum: 10000000000, description: API存储单位为整数分；UI输入和展示单位为元。 }
+        rent_max_cents: { type: [integer, 'null'], minimum: 0, maximum: 10000000000, description: API存储单位为整数分；UI输入和展示单位为元。 }
         rent_unit:
           oneOf: [{ $ref: '#/components/schemas/RentUnit' }, { type: 'null' }]
-        move_in_time: { type: [string, 'null'] }
+        move_in_time:
+          type: [string, 'null']
+          description: immediate 截止中国标准时间参考日；within_30_days/within_90_days 截止参考日加30/90个日历日；也可用严格 YYYY-MM-DD。
         floor_preference: { type: [string, 'null'] }
         needs_freight_elevator: { type: [boolean, 'null'] }
         elevator_min_tons: { type: [number, 'null'], minimum: 0.1, maximum: 100 }
@@ -167,7 +184,7 @@ components:
         other_notes: { type: [string, 'null'] }
     DemandDraft:
       type: object
-      required: [raw_text, constraints, hard_conditions, preference_conditions, missing_fields, ai_confidence]
+      required: [raw_text, constraints, hard_conditions, preference_conditions, constraint_priorities, missing_fields, ai_confidence]
       properties:
         raw_text: { type: string, minLength: 1, maxLength: 1000 }
         constraints: { $ref: '#/components/schemas/DemandConstraints' }
@@ -179,6 +196,12 @@ components:
           type: array
           maxItems: 20
           items: { type: string }
+        constraint_priorities:
+          type: array
+          maxItems: 10
+          uniqueItems: true
+          description: 支持字段的类型化 hard/preference 级别；未知其他硬条件仍放在 hard_conditions 并视为无法验证。
+          items: { $ref: '#/components/schemas/ConstraintPriority' }
         missing_fields:
           type: array
           items: { type: string }
@@ -253,7 +276,7 @@ components:
         reason: { type: string }
     MatchResult:
       type: object
-      required: [listing, overall_score, dimension_scores, recommendation_reasons, unmet_conditions, area_relaxed, data_gaps]
+      required: [listing, overall_score, dimension_scores, recommendation_reasons, unmet_conditions, satisfied_hard_constraints, unmet_hard_constraints, unverified_hard_constraints, unmet_preferences, area_relaxed, data_gaps]
       properties:
         listing: { $ref: '#/components/schemas/ListingSummary' }
         overall_score: { type: number, minimum: 0, maximum: 100 }
@@ -270,10 +293,34 @@ components:
         unmet_conditions:
           type: array
           items: { type: string }
+        satisfied_hard_constraints:
+          type: array
+          items: { $ref: '#/components/schemas/ConstraintAssessment' }
+        unmet_hard_constraints:
+          type: array
+          description: 非空时 /leads 返回 HARD_CONDITION_NOT_MET。
+          items: { $ref: '#/components/schemas/ConstraintAssessment' }
+        unverified_hard_constraints:
+          type: array
+          description: 非空时 /leads 返回 HARD_CONDITION_UNVERIFIED。
+          items: { $ref: '#/components/schemas/ConstraintAssessment' }
+        unmet_preferences:
+          type: array
+          description: 偏好不阻断线索，但客户端明确展示。
+          items: { $ref: '#/components/schemas/ConstraintAssessment' }
         area_relaxed: { type: boolean }
         data_gaps:
           type: array
           items: { type: string }
+    ConstraintAssessment:
+      type: object
+      additionalProperties: false
+      required: [key, label, detail]
+      properties:
+        key:
+          oneOf: [{ $ref: '#/components/schemas/ConstraintKey' }, { type: 'null' }]
+        label: { type: string }
+        detail: { type: string }
     MatchResponse:
       type: object
       required: [matches, used_area_relaxation, next_step_suggestion, demo_data]
@@ -346,10 +393,13 @@ components:
         temporary_storage: { type: boolean, const: true }
     MetadataOptions:
       type: object
-      required: [towns, space_types, rent_units, verification_levels, demo_data]
+      required: [towns, space_types, rent_units, verification_levels, constraint_keys, business_timezone, currency_storage_unit, currency_display_unit, demo_data]
       properties:
         towns:
           type: array
+          minItems: 33
+          maxItems: 33
+          uniqueItems: true
           items: { type: string }
         space_types:
           type: array
@@ -360,4 +410,10 @@ components:
         verification_levels:
           type: array
           items: { $ref: '#/components/schemas/ListingVerificationLevel' }
+        constraint_keys:
+          type: array
+          items: { $ref: '#/components/schemas/ConstraintKey' }
+        business_timezone: { type: string, const: Asia/Shanghai }
+        currency_storage_unit: { type: string, const: cents }
+        currency_display_unit: { type: string, const: yuan }
         demo_data: { type: boolean, const: true }

@@ -53,11 +53,11 @@ Rust 新模块位于 `src/services/miniapp/`，由根 `src/services/mod.rs` 引�
 | POST | `/api/miniapp/v1/leads` | 幂等创建临时招商线索 |
 | GET | `/api/miniapp/v1/metadata/options` | 东莞镇街、类型与表单选项 |
 
-业务响应统一包含 `code`、`message`、`request_id`、`data` 和 `errors`。Dioxus 在进入函数前发生的不可解析 JSON 属于框架级 4xx；进入函数后的校验、认证、配置和业务错误均使用统一包装。
+业务响应统一包含 `code`、`message`、`request_id`、`data` 和 `errors`。生产 Dioxus Server Function 与测试 Axum Router 均委托给同一个 `MiniappService`；隔离 Router 对不可解析 JSON 返回 400 + `INVALID_JSON` envelope，业务错误维持 200 + 明确业务码。
 
 ## 4. 领域与数据流
 
-Rust 与 TypeScript 均使用 snake_case JSON 字段。核心模型为 `SpaceType`、`DemandDraft`、`DemandConstraints`、`DemandInterpretation`、`ListingSummary`、`ListingVerificationLevel`、`MatchDimensionScore`、`MatchResult`、`LeadSubmission`、`LeadRecord` 和 `AdvisorAssignmentStatus`。
+Rust 与 TypeScript 均使用 snake_case JSON 字段。`ConstraintKey` 类型化覆盖预算、货梯、电梯吨位、用电、消防、货车通行、装卸、分租、楼层和入驻时间，`ConstraintPriority` 用 `hard | preference` 表达级别。结果将硬条件分为已满足、未满足和数据不足无法验证；其他自由文本硬条件始终属于无法验证，不能伪装为机器已核验。
 
 ```text
 uni-app 页面
@@ -80,13 +80,25 @@ uni-app 页面
 
 ## 6. 匹配与线索
 
-硬过滤依次为出租状态、AI 推荐资格、自营或 L2/L3、类型、镇街和面积。严格面积无结果时只放宽 ±20%；仍无结果仅返回“是否接受相邻镇街”的建议，不自动扩镇。
+硬过滤依次为出租状态、AI 推荐资格、自营或 L2/L3、类型、镇街和面积。严格面积无结果时只放宽 ±20%；仍无结果仅返回“是否接受相邻镇街”的建议，不自动扩镇。提交线索时服务端重新计算以上过滤和所有类型化硬条件；未满足返回 `HARD_CONDITION_NOT_MET`，数据缺失或其他未知硬条件返回 `HARD_CONDITION_UNVERIFIED`。
 
 七维得分按位置 20、空间 20、成本 20、生产 15、物流 10、合规 10、入驻 5 加权。核验等级、自营和更新时间只用于同分排序，稳定 ID 为最终排序键。
 
-线索必须满足：有效会话、会话内联系方式已确认、类型/镇街/面积完整、至少一个真实推荐 ID、所选房源满足明确硬条件、用户提供合法幂等键。线索初始状态为 `pending_assignment`，返回 15 分钟 SLA 和临时存储说明；不触发短信、电话、企业微信或任何外部通知。
+日期由可注入 `Clock` 提供，生产使用服务端时间换算中国标准时间，测试使用 `FixedClock`。`immediate`、30 天、90 天和明确日期均按“房源可入住日期不晚于截止日”比较，不包含任何固定 2026 当前日期。
 
-## 7. 安全设计
+线索必须满足：有效会话、会话内联系方式已确认、类型/镇街/面积完整、至少一个真实推荐 ID、所选房源所有硬条件满足且可验证、用户提供合法幂等键。线索初始状态为 `pending_assignment`，返回 15 分钟 SLA 和临时存储说明；不触发短信、电话、企业微信或任何外部通知。
+
+## 7. 前端元数据、金额与恢复
+
+- Rust `/metadata/options` 是镇街权威来源；前端 `metadata` Store 被首页和确认页共同使用，33 镇街本地列表只作完整降级，并显示非阻断提示。
+- 页面只展示元；API/Pinia/Rust 保留整数分。`money.ts` 用字符串拆分整数和最多两位小数，拒绝负数、精度超限和超过 1 亿元的预算。
+- 认证和需求缓存使用独立 v2 envelope。页面共同执行认证 hydrate → 需求 hydrate → composable 同步 → 守卫；确认页使用 `storeToRefs`，不持有 hydrate 前的可替换对象。
+
+## 8. 隔离 HTTP 测试架构
+
+`http_e2e.rs` 在测试进程内绑定 `127.0.0.1:0`，构造 `ServiceConfig::isolated_local`，因此解析路径不能读取百炼 provider 或 API Key。只注册 5 条 miniapp 路由并注入 fixture 与内存 Repository；测试完成发送 graceful shutdown，等待任务结束并重新绑定原端口证明已释放。该路径不会调用根 `main` 或初始化任何外部业务模块。
+
+## 9. 安全设计
 
 - 原始文字最多 1000 字，拒绝 HTML 标签/脚本样式输入；页面只使用 Vue 文本插值，不使用 `v-html`。
 - 每个请求执行字段长度、集合大小、数值范围和近似序列化体积限制。
@@ -95,7 +107,7 @@ uni-app 页面
 - Pinia 仅保存本地演示短会话和需求草稿，不保存 AI Key。
 - fixture 全部虚构，不含真实门牌、业主、电话、图片 URL 或生产导出。
 
-## 8. 当前字段映射差距
+## 10. 当前字段映射差距
 
 | 本切片字段 | 现有来源 | 差距/处理 |
 |---|---|---|
@@ -109,6 +121,6 @@ uni-app 页面
 | 入驻日期/更新时间 | 部分有 updated_at | 没有房源可入驻日期 |
 | 需求快照/推荐 IDs/幂等键/SLA | 无 | 本轮内存端口，未来新线索模型 |
 
-## 9. 已知限制
+## 11. 已知限制
 
 本地中文解析器是确定性规则解析，不等同于完整自然语言理解；fixture 匹配不是生产搜索；开发会话和线索都随服务进程重启丢失；百炼实现不在无 Key 环境发起网络测试；微信登录、企业核验、顾问分配落库、管理端转派、预约/带看和真实通知均留待后续。

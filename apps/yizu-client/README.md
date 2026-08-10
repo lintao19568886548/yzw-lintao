@@ -14,8 +14,8 @@
 ## 安装和检查
 
 ```powershell
-cd D:\宜租网\parkwise-main\apps\yizu-client
-npm install
+cd <repo-root>\apps\yizu-client
+npm ci
 npm run type-check
 npm run test
 ```
@@ -25,7 +25,7 @@ npm run test
 先在仓库根目录按下文启动 Rust BFF，再新开终端：
 
 ```powershell
-cd D:\宜租网\parkwise-main\apps\yizu-client
+cd <repo-root>\apps\yizu-client
 $env:VITE_YIZU_DEMO_MODE="true"
 $env:VITE_YIZU_API_BASE_URL="http://127.0.0.1:8080"
 npm run dev:h5
@@ -36,7 +36,7 @@ npm run dev:h5
 ## 微信小程序
 
 ```powershell
-cd D:\宜租网\parkwise-main\apps\yizu-client
+cd <repo-root>\apps\yizu-client
 $env:VITE_YIZU_DEMO_MODE="true"
 $env:VITE_YIZU_API_BASE_URL="http://127.0.0.1:8080"
 npm run dev:mp-weixin
@@ -49,13 +49,31 @@ npm run dev:mp-weixin
 本切片复用现有 Dioxus Fullstack 进程，没有创建第二个后端。开发模拟登录还需要服务端显式开关：
 
 ```powershell
-cd D:\宜租网\parkwise-main
+cd <repo-root>
 $env:YIZU_MINIAPP_DEV_AUTH_ENABLED="true"
 $env:YIZU_MINIAPP_AI_PROVIDER="local"
 dx serve --features server
 ```
 
 若本机 Dioxus CLI 的启动参数与仓库版本不同，以根目录 `Dioxus.toml` 和现有项目启动方式为准。默认 API 前缀为 `/api/miniapp/v1`。
+
+## 隔离 HTTP E2E
+
+不启动完整根应用即可验证 uni-app JSON 契约与 Rust BFF 的 5 条真实 HTTP 路径：
+
+```powershell
+cd <repo-root>
+cargo test --features server miniapp_http_e2e
+```
+
+测试只绑定 `127.0.0.1` 随机端口，固定使用本地解析器、虚构 fixture、内存会话和内存线索；不会读取百炼 Key，不会初始化 SpacetimeDB、对象存储、短信、设备或其他园区模块，结束后自动关闭并验证端口释放。
+
+## 表单契约
+
+- 镇街以 `/metadata/options` 为权威来源；首页与确认页共用 metadata Store，请求失败时使用完整 33 镇街降级列表并保留用户选择。
+- 用户界面只显示元/月或元/平方米/月；API、Pinia 和 Rust 内部使用整数分。金额输入支持整数或最多两位小数，拒绝负数、过高金额和多余小数位。
+- 支持字段用 `constraint_priorities` 标记 `hard` 或 `preference`。未满足或无法验证的硬条件都会阻断客户端提交，Rust 服务端还会重算并最终拒绝。
+- 缓存是 v2 versioned envelope；损坏或旧版缓存会安全清理。页面统一按认证 → 需求 → 表单同步 → 守卫的顺序恢复。
 
 ## AI Provider
 
