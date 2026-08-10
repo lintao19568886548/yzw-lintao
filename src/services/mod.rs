@@ -7,6 +7,7 @@ mod device;
 mod finance;
 mod hr;
 mod maintenance;
+mod miniapp;
 mod park_ref;
 mod profile;
 mod permission_management;
