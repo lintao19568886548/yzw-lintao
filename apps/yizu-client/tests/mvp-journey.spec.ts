@@ -23,6 +23,15 @@ describe('宜租网小程序 MVP 主流程', () => {
     expect(parsed.constraints.power_capacity_kva).toBe(500)
   })
 
+  it('本地解析器补齐用途、层高和承重字段', () => {
+    const demand = emptyDemand()
+    demand.raw_text = '寮步五金加工厂房，层高8.5米，承重1200公斤/平方米'
+    const parsed = interpretLocalDemand(demand)
+    expect(parsed.constraints.industry_or_use).toBe('五金加工')
+    expect(parsed.constraints.clear_height_m).toBe(8.5)
+    expect(parsed.constraints.floor_load_kg_sqm).toBe(1200)
+  })
+
   it('只推荐L2/L3可租房源并支持严格面积为空后的20%放宽', () => {
     const demand = emptyDemand()
     demand.raw_text = '松山湖厂房'

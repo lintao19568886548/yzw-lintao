@@ -179,6 +179,24 @@ pub fn validate_demand(demand: &DemandDraft, require_complete: bool) -> Vec<ApiF
             "用电容量必须在1到100000kVA之间",
         ));
     }
+    if constraints
+        .clear_height_m
+        .is_some_and(|value| !value.is_finite() || !(1.0..=30.0).contains(&value))
+    {
+        errors.push(field_error(
+            "constraints.clear_height_m",
+            "净高必须在1到30米之间",
+        ));
+    }
+    if constraints
+        .floor_load_kg_sqm
+        .is_some_and(|value| value == 0 || value > 100_000)
+    {
+        errors.push(field_error(
+            "constraints.floor_load_kg_sqm",
+            "楼面承重必须在1到100000公斤/平方米之间",
+        ));
+    }
     for (field, value, max_chars) in [
         (
             "constraints.move_in_time",
@@ -189,6 +207,11 @@ pub fn validate_demand(demand: &DemandDraft, require_complete: bool) -> Vec<ApiF
             "constraints.floor_preference",
             constraints.floor_preference.as_deref(),
             80,
+        ),
+        (
+            "constraints.industry_or_use",
+            constraints.industry_or_use.as_deref(),
+            120,
         ),
         (
             "constraints.fire_requirement",

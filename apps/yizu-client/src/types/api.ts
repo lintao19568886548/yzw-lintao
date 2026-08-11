@@ -5,6 +5,29 @@ export interface DevSessionRequest {
   contact_confirmed: boolean
 }
 
+export interface SmsSendRequest {
+  phone: string
+  device_id: string
+}
+
+export interface SmsVerifyRequest {
+  phone: string
+  code: string
+  device_id: string
+  agreements_accepted: boolean
+}
+
+export interface WechatLoginRequest {
+  code: string
+  device_id: string
+  agreements_accepted: boolean
+}
+
+export interface SmsSendResponse {
+  expires_in_seconds: number
+  retry_after_seconds: number
+}
+
 export interface InterpretDemandRequest {
   session_token: string
   draft: DemandDraft
@@ -27,6 +50,9 @@ export interface SubmitLeadRequest {
 
 export interface MiniappApi {
   createDevSession(request: DevSessionRequest): Promise<DevSessionResponse>
+  sendSmsCode(request: SmsSendRequest): Promise<SmsSendResponse>
+  verifySmsCode(request: SmsVerifyRequest): Promise<DevSessionResponse>
+  exchangeWechatCode(request: WechatLoginRequest): Promise<DevSessionResponse>
   interpretDemand(request: InterpretDemandRequest): Promise<DemandInterpretation>
   createMatches(request: MatchRequest): Promise<MatchResponse>
   submitLead(request: SubmitLeadRequest): Promise<LeadRecord>

@@ -6,8 +6,9 @@
 
 ```powershell
 npm ci
+$env:VITE_YIZU_MODE="demo"
 $env:VITE_YIZU_DEMO_MODE="true"
-$env:VITE_YIZU_API_BASE_URL="http://127.0.0.1:8080"
+$env:VITE_YIZU_API_BASE_URL=""
 npm run dev:h5 -- --host 127.0.0.1
 ```
 
@@ -15,7 +16,9 @@ npm run dev:h5 -- --host 127.0.0.1
 
 ## Rust BFF 模式
 
-不启用 `VITE_YIZU_DEMO_MODE` 时，客户端继续使用运行配置中的 BFF 地址及五条 `/api/miniapp/v1` 接口。生产构建不会开启模拟登录，且必须配置 `VITE_YIZU_API_BASE_URL`。
+`demo` 模式不会访问网络；`test` 调用测试 Rust BFF；只有显式设置 `VITE_YIZU_MODE=production` 且配置 HTTPS `VITE_YIZU_API_BASE_URL` 时才进入生产模式。任何 AppSecret、短信密钥、百炼 Key 或数据库 URL 都禁止进入 `VITE_` 变量。
+
+完整配置与联调边界见 `docs/miniapp-auth-config-integration.md`。
 
 百炼 Key 只能由 Rust 服务端读取，禁止放入任何 `VITE_` 变量或前端文件。
 

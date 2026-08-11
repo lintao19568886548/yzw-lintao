@@ -23,8 +23,11 @@ use super::{
     types::{ApiResponse, ListingVerificationLevel},
 };
 
-const MINIAPP_PATHS: [(&str, Method); 5] = [
+const MINIAPP_PATHS: [(&str, Method); 8] = [
     ("/api/miniapp/v1/auth/dev-session", Method::POST),
+    ("/api/miniapp/v1/auth/sms/send", Method::POST),
+    ("/api/miniapp/v1/auth/sms/verify", Method::POST),
+    ("/api/miniapp/v1/auth/wechat", Method::POST),
     ("/api/miniapp/v1/demands/interpret", Method::POST),
     ("/api/miniapp/v1/matches", Method::POST),
     ("/api/miniapp/v1/leads", Method::POST),

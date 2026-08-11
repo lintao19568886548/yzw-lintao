@@ -6,6 +6,7 @@ import type {
   ConstraintAssessment, ConstraintKey, ConstraintLevel, DemandDraft, LeadRecord,
   ListingDetail, MatchDimensionScore, MatchResponse, MatchResult, RentUnit, SpaceType,
 } from '@/types/domain'
+import { isValidPhone } from '@/utils/validation'
 
 const SPACE_TYPES: Array<[SpaceType, string[]]> = [
   ['factory', ['厂房', '厂区', '车间']],
@@ -109,6 +110,20 @@ export function interpretLocalDemand(source: DemandDraft): DemandDraft {
   if (power !== null) {
     demand.constraints.power_capacity_kva ??= Math.round(power)
     upsertPriority(demand, 'power_capacity', classifyConstraintNear(normalized, ['用电', '变压器', 'kva', '千伏安']))
+  }
+  if (!demand.constraints.industry_or_use) {
+    demand.constraints.industry_or_use = ['电子制造', '五金加工', '食品生产', '电商仓储', '物流仓储', '研发办公']
+      .find((value) => normalized.includes(value)) ?? null
+  }
+  if (demand.constraints.clear_height_m === null) {
+    const height = normalized.match(/(?:层高|净高)\s*(\d+(?:\.\d+)?)\s*米?/u)
+      ?? normalized.match(/(\d+(?:\.\d+)?)\s*米\s*(?:层高|净高)/u)
+    if (height?.[1]) demand.constraints.clear_height_m = Number(height[1])
+  }
+  if (demand.constraints.floor_load_kg_sqm === null) {
+    const load = normalized.match(/(?:承重|荷载)[^，。；]{0,8}?(\d+)\s*(?:kg|公斤)/u)
+      ?? normalized.match(/(\d+)\s*(?:kg|公斤)[^，。；]{0,8}?(?:承重|荷载)/u)
+    if (load?.[1]) demand.constraints.floor_load_kg_sqm = Number(load[1])
   }
   const fire = normalized.match(/([甲乙丙丁戊]类)消防/u)
   if (fire?.[1]) {
@@ -250,6 +265,7 @@ function stableNumber(prefix: string, key: string): string {
 export const localDemoApi: MiniappApi = {
   async createDevSession(request) {
     await wait()
+    if (!isValidPhone(request.phone)) throw new ApiError('VALIDATION_ERROR', '请输入有效的11位中国大陆手机号')
     if (!request.contact_confirmed) throw new ApiError('VALIDATION_ERROR', '请确认联系方式')
     return {
       session_token: `local_demo_${Date.now()}`,
@@ -257,6 +273,15 @@ export const localDemoApi: MiniappApi = {
       expires_at_epoch_seconds: Math.floor(Date.now() / 1000) + 8 * 60 * 60,
       local_demo: true,
     }
+  },
+  async sendSmsCode() {
+    throw new ApiError('DEMO_EXTERNAL_CALL_BLOCKED', '演示模式不会发送真实短信')
+  },
+  async verifySmsCode() {
+    throw new ApiError('DEMO_EXTERNAL_CALL_BLOCKED', '演示模式不使用短信验证码')
+  },
+  async exchangeWechatCode() {
+    throw new ApiError('DEMO_EXTERNAL_CALL_BLOCKED', '演示模式不调用微信凭证交换')
   },
   async interpretDemand(request) {
     await wait(260)

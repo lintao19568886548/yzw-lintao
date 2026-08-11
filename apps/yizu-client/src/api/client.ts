@@ -1,5 +1,6 @@
-import { apiBaseUrl } from '@/config/runtime'
+import { runtimeConfig } from '@/config/runtime'
 import type { ApiResponse } from '@/types/domain'
+import { getOrCreateDeviceId } from '@/utils/device'
 
 export class ApiError extends Error {
   readonly code: string
@@ -27,19 +28,28 @@ export function isSessionError(error: unknown): boolean {
   return error instanceof ApiError && (error.code === 'SESSION_EXPIRED' || error.code === 'UNAUTHENTICATED')
 }
 
+function redirectExpiredSession(code: string): void {
+  if (code !== 'SESSION_EXPIRED' && code !== 'UNAUTHENTICATED') return
+  uni.reLaunch({ url: '/pages/login/index' })
+}
+
 export async function requestApi<T>(
   path: string,
   method: 'GET' | 'POST',
   data?: object,
   timeout = 15_000,
 ): Promise<T> {
-  const baseUrl = apiBaseUrl(import.meta.env.VITE_YIZU_API_BASE_URL, import.meta.env.DEV)
+  if (!runtimeConfig.apiBaseUrl) throw new ApiError('DEMO_NETWORK_BLOCKED', '演示模式禁止访问远程 API')
+  const baseUrl = runtimeConfig.apiBaseUrl
   return await new Promise<T>((resolve, reject) => {
     const options: UniNamespace.RequestOptions = {
       url: `${baseUrl}${path}`,
       method,
       timeout,
-      header: { 'content-type': 'application/json' },
+      header: {
+        'content-type': 'application/json',
+        'x-yizu-device-id': getOrCreateDeviceId(),
+      },
       success(response: UniNamespace.RequestSuccessCallbackResult) {
         const envelope = response.data as ApiResponse<T>
         if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -51,6 +61,7 @@ export async function requestApi<T>(
           return
         }
         if (envelope.code !== 'OK' || envelope.data === null) {
+          redirectExpiredSession(envelope.code)
           reject(new ApiError(envelope.code, envelope.message, envelope.request_id))
           return
         }

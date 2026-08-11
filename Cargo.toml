@@ -48,6 +48,8 @@ web-sys = { version = "0.3", features = ["Blob", "BlobPropertyBag", "Document", 
 aws-config = { version = "1.0", features = ["behavior-version-latest"], optional = true }
 aws-sdk-s3 = { version = "1.0", optional = true }
 dotenvy = { version = "0.15", optional = true }
+getrandom = { version = "0.3", optional = true }
+hmac = { version = "0.12", optional = true }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 spacetimedb-sdk = "2.6.1"
 tokio = { version = "1", features = ["time"], optional = true }
@@ -68,6 +70,8 @@ server = [
     "dep:aws-config",
     "dep:aws-sdk-s3",
     "dep:dotenvy",
+    "dep:getrandom",
+    "dep:hmac",
     "dep:tokio",
     "dep:calamine",
     "dep:rust_xlsxwriter",

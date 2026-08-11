@@ -6,11 +6,12 @@ import type {
 import { CONSTRAINT_KEYS, CONSTRAINT_LEVELS, materializeLegacyPriorities } from '@/utils/constraint-priority'
 import { readJson, readVersionedJson, removeStored, writeVersionedJson } from '@/utils/storage'
 
-export const DEMAND_STORAGE_KEY = 'yizu-miniapp-demand-v4'
+export const DEMAND_STORAGE_KEY = 'yizu-miniapp-demand-v5'
+export const V4_DEMAND_STORAGE_KEY = 'yizu-miniapp-demand-v4'
 export const V3_DEMAND_STORAGE_KEY = 'yizu-miniapp-demand-v3'
 export const V2_DEMAND_STORAGE_KEY = 'yizu-miniapp-demand-v2'
 const V1_DEMAND_STORAGE_KEY = 'yizu-miniapp-demand-v1'
-const DEMAND_STORAGE_VERSION = 4
+const DEMAND_STORAGE_VERSION = 5
 
 export function emptyDemand(): DemandDraft {
   return {
@@ -19,7 +20,8 @@ export function emptyDemand(): DemandDraft {
       space_type: null, target_towns: [], area_min_sqm: null, area_max_sqm: null,
       rent_min_cents: null, rent_max_cents: null, rent_unit: null, move_in_time: null,
       floor_preference: null, needs_freight_elevator: null, elevator_min_tons: null,
-      power_capacity_kva: null, fire_requirement: null, logistics_requirement: null,
+      power_capacity_kva: null, industry_or_use: null, clear_height_m: null,
+      floor_load_kg_sqm: null, fire_requirement: null, logistics_requirement: null,
       loading_requirement: null, accepts_sublease: null, other_notes: null,
     },
     hard_conditions: [], preference_conditions: [], constraint_priorities: [], missing_fields: [], ai_confidence: 0,
@@ -84,6 +86,8 @@ function isConstraints(value: unknown): value is DemandConstraints {
     && isNullableString(value.move_in_time) && isNullableString(value.floor_preference)
     && isNullableBoolean(value.needs_freight_elevator)
     && isNullableFiniteNumber(value.elevator_min_tons) && isNullableFiniteNumber(value.power_capacity_kva)
+    && isNullableString(value.industry_or_use) && isNullableFiniteNumber(value.clear_height_m)
+    && isNullableFiniteNumber(value.floor_load_kg_sqm)
     && isNullableString(value.fire_requirement) && isNullableString(value.logistics_requirement)
     && isNullableString(value.loading_requirement) && isNullableBoolean(value.accepts_sublease)
     && isNullableString(value.other_notes)
@@ -261,8 +265,9 @@ export const useDemandStore = defineStore('demand', {
     hydrate(): void {
       try {
         removeStored(V1_DEMAND_STORAGE_KEY)
+        removeStored(V4_DEMAND_STORAGE_KEY)
         const saved = readVersionedJson(DEMAND_STORAGE_KEY, DEMAND_STORAGE_VERSION, isDemandSnapshot)
-        if (saved) { this.$patch(saved); removeStored(V3_DEMAND_STORAGE_KEY); removeStored(V2_DEMAND_STORAGE_KEY); return }
+        if (saved) { this.$patch(saved); removeStored(V4_DEMAND_STORAGE_KEY); removeStored(V3_DEMAND_STORAGE_KEY); removeStored(V2_DEMAND_STORAGE_KEY); return }
         const v3 = readJson<{ version: number; data: unknown }>(V3_DEMAND_STORAGE_KEY)
         removeStored(V3_DEMAND_STORAGE_KEY)
         const migratedV3 = v3?.version === 3 ? migrateV3Snapshot(v3.data) : null
@@ -274,6 +279,7 @@ export const useDemandStore = defineStore('demand', {
       } catch {
         this.$reset()
         removeStored(DEMAND_STORAGE_KEY)
+        removeStored(V4_DEMAND_STORAGE_KEY)
         removeStored(V3_DEMAND_STORAGE_KEY)
         removeStored(V2_DEMAND_STORAGE_KEY)
         removeStored(V1_DEMAND_STORAGE_KEY)
@@ -288,6 +294,7 @@ export const useDemandStore = defineStore('demand', {
     resetFlow(): void {
       this.$reset()
       removeStored(DEMAND_STORAGE_KEY)
+      removeStored(V4_DEMAND_STORAGE_KEY)
       removeStored(V3_DEMAND_STORAGE_KEY)
       removeStored(V2_DEMAND_STORAGE_KEY)
       removeStored(V1_DEMAND_STORAGE_KEY)

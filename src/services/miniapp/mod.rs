@@ -1,5 +1,9 @@
 mod api;
+#[cfg(feature = "server")]
+mod auth;
 mod clock;
+#[cfg(feature = "server")]
+mod config;
 mod interpreter;
 mod matching;
 mod repository;

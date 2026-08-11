@@ -23,6 +23,9 @@ export interface DemandConstraints {
   needs_freight_elevator: boolean | null
   elevator_min_tons: number | null
   power_capacity_kva: number | null
+  industry_or_use: string | null
+  clear_height_m: number | null
+  floor_load_kg_sqm: number | null
   fire_requirement: string | null
   logistics_requirement: string | null
   loading_requirement: string | null
@@ -157,6 +160,7 @@ export interface ApiResponse<T> {
 
 export interface DevSessionResponse {
   session_token: string
+  refresh_token?: string
   masked_phone: string
   expires_at_epoch_seconds: number
   local_demo: boolean

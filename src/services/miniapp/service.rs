@@ -4,6 +4,7 @@ use std::{
 };
 
 use super::{
+    auth::{MiniappAuthService, RequestIdentity},
     clock::{Clock, SystemClock, BUSINESS_TIMEZONE},
     interpreter::{DemandInterpreter, LocalDemandInterpreter},
     matching::match_listings_with_clock,
@@ -11,7 +12,7 @@ use super::{
     types::{
         AdvisorAssignmentStatus, ApiFieldError, ApiResponse, DevSessionRequest, DevSessionResponse,
         InterpretDemandRequest, LeadRecord, MatchRequest, MatchResponse, MetadataOptions,
-        SubmitLeadRequest,
+        SmsSendRequest, SmsSendResponse, SmsVerifyRequest, SubmitLeadRequest, WechatLoginRequest,
     },
     validation::{
         mask_phone, normalize_constraint_priorities, validate_demand, validate_idempotency_key,
@@ -61,19 +62,15 @@ enum InterpreterMode {
 pub struct ServiceConfig {
     dev_auth_enabled: bool,
     interpreter_mode: InterpreterMode,
-    local_fallback_enabled: bool,
 }
 
 impl ServiceConfig {
     pub fn from_environment() -> Self {
         let explicit_auth = std::env::var("YIZU_MINIAPP_DEV_AUTH_ENABLED")
             .is_ok_and(|value| value.eq_ignore_ascii_case("true"));
-        let explicit_fallback = std::env::var("YIZU_MINIAPP_BAILIAN_ALLOW_LOCAL_FALLBACK")
-            .is_ok_and(|value| value.eq_ignore_ascii_case("true"));
         Self {
             dev_auth_enabled: dev_auth_allowed(cfg!(debug_assertions), explicit_auth),
             interpreter_mode: InterpreterMode::Environment,
-            local_fallback_enabled: cfg!(debug_assertions) && explicit_fallback,
         }
     }
 
@@ -82,7 +79,6 @@ impl ServiceConfig {
         Self {
             dev_auth_enabled: dev_auth_allowed(cfg!(debug_assertions), explicit_auth),
             interpreter_mode: InterpreterMode::LocalOnly,
-            local_fallback_enabled: false,
         }
     }
 }
@@ -130,10 +126,28 @@ impl MiniappRuntime {
         );
         Ok(DevSessionResponse {
             session_token,
+            refresh_token: None,
             masked_phone: mask_phone(&request.phone),
             expires_at_epoch_seconds: expires,
             local_demo: true,
         })
+    }
+
+    fn insert_authenticated_session(
+        &mut self,
+        token: String,
+        identity: String,
+        expires_at_epoch_seconds: u64,
+        contact_confirmed: bool,
+    ) {
+        self.sessions.insert(
+            token,
+            DemoSession {
+                phone: identity,
+                contact_confirmed,
+                expires_at_epoch_seconds,
+            },
+        );
     }
 
     fn ensure_authenticated(&self, token: &str, now: u64) -> Result<(), ServiceError> {
@@ -270,12 +284,14 @@ pub struct MiniappService {
     clock: Arc<dyn Clock>,
     repository: FixtureListingRepository,
     runtime: Mutex<MiniappRuntime>,
+    auth: MiniappAuthService,
     request_sequence: std::sync::atomic::AtomicU64,
 }
 
 impl MiniappService {
     pub fn new(config: ServiceConfig, clock: Arc<dyn Clock>) -> Self {
-        Self::with_repository(config, clock, FixtureListingRepository::default())
+        let auth = MiniappAuthService::disabled(clock.clone());
+        Self::with_repository_and_auth(config, clock, FixtureListingRepository::default(), auth)
     }
 
     pub fn with_repository(
@@ -283,12 +299,99 @@ impl MiniappService {
         clock: Arc<dyn Clock>,
         repository: FixtureListingRepository,
     ) -> Self {
+        let auth = MiniappAuthService::disabled(clock.clone());
+        Self::with_repository_and_auth(config, clock, repository, auth)
+    }
+
+    pub fn with_repository_and_auth(
+        config: ServiceConfig,
+        clock: Arc<dyn Clock>,
+        repository: FixtureListingRepository,
+        auth: MiniappAuthService,
+    ) -> Self {
         Self {
             config,
             clock,
             repository,
             runtime: Mutex::new(MiniappRuntime::default()),
+            auth,
             request_sequence: std::sync::atomic::AtomicU64::new(1),
+        }
+    }
+
+    pub async fn handle_sms_send(
+        &self,
+        request: SmsSendRequest,
+        identity: RequestIdentity,
+    ) -> ApiResponse<SmsSendResponse> {
+        let request_id = self.request_id();
+        match self.auth.send_sms_code(request, identity).await {
+            Ok(data) => ApiResponse::success(request_id, "验证码发送成功", data),
+            Err(error) => ApiResponse::failure(request_id, error.code, error.message, Vec::new()),
+        }
+    }
+
+    pub fn handle_sms_verify(&self, request: SmsVerifyRequest) -> ApiResponse<DevSessionResponse> {
+        let request_id = self.request_id();
+        let phone = request.phone.clone();
+        match self.auth.verify_sms_code(request) {
+            Ok(data) => {
+                if self
+                    .runtime
+                    .lock()
+                    .map(|mut runtime| {
+                        runtime.insert_authenticated_session(
+                            data.session_token.clone(),
+                            phone,
+                            data.expires_at_epoch_seconds,
+                            true,
+                        );
+                    })
+                    .is_err()
+                {
+                    return ApiResponse::failure(
+                        request_id,
+                        "INTERNAL_ERROR",
+                        "认证服务暂时不可用",
+                        Vec::new(),
+                    );
+                }
+                ApiResponse::success(request_id, "登录成功", data)
+            }
+            Err(error) => ApiResponse::failure(request_id, error.code, error.message, Vec::new()),
+        }
+    }
+
+    pub async fn handle_wechat_login(
+        &self,
+        request: WechatLoginRequest,
+    ) -> ApiResponse<DevSessionResponse> {
+        let request_id = self.request_id();
+        match self.auth.exchange_wechat_code(request).await {
+            Ok(data) => {
+                if self
+                    .runtime
+                    .lock()
+                    .map(|mut runtime| {
+                        runtime.insert_authenticated_session(
+                            data.session_token.clone(),
+                            "wechat-user".into(),
+                            data.expires_at_epoch_seconds,
+                            false,
+                        );
+                    })
+                    .is_err()
+                {
+                    return ApiResponse::failure(
+                        request_id,
+                        "INTERNAL_ERROR",
+                        "认证服务暂时不可用",
+                        Vec::new(),
+                    );
+                }
+                ApiResponse::success(request_id, "微信登录成功", data)
+            }
+            Err(error) => ApiResponse::failure(request_id, error.code, error.message, Vec::new()),
         }
     }
 
@@ -448,17 +551,8 @@ impl MiniappService {
             "bailian" => {
                 use super::interpreter::bailian::{BailianConfig, BailianDemandInterpreter};
                 match BailianConfig::from_env().and_then(BailianDemandInterpreter::new) {
-                    Ok(interpreter) => interpreter.interpret(draft.clone()).await,
-                    Err(configuration_error) if self.config.local_fallback_enabled => {
-                        LocalDemandInterpreter
-                            .interpret(draft)
-                            .await
-                            .map(|mut output| {
-                                output.fallback_reason = Some(configuration_error);
-                                output
-                            })
-                    }
-                    Err(configuration_error) => Err(configuration_error),
+                    Ok(interpreter) => interpret_with_local_fallback(&interpreter, draft).await,
+                    Err(_) => local_fallback(draft).await,
                 }
             }
             _ => Err("AI_PROVIDER_INVALID:YIZU_MINIAPP_AI_PROVIDER 只能是 local 或 bailian".into()),
@@ -473,6 +567,28 @@ impl MiniappService {
             self.request_sequence.fetch_add(1, Ordering::Relaxed)
         )
     }
+}
+
+async fn interpret_with_local_fallback(
+    interpreter: &impl DemandInterpreter,
+    draft: super::types::DemandDraft,
+) -> Result<super::types::DemandInterpretation, String> {
+    match interpreter.interpret(draft.clone()).await {
+        Ok(output) => Ok(output),
+        Err(_) => local_fallback(draft).await,
+    }
+}
+
+async fn local_fallback(
+    draft: super::types::DemandDraft,
+) -> Result<super::types::DemandInterpretation, String> {
+    LocalDemandInterpreter
+        .interpret(draft)
+        .await
+        .map(|mut output| {
+            output.fallback_reason = Some("bailian_unavailable".into());
+            output
+        })
 }
 
 fn metadata() -> MetadataOptions {
@@ -522,7 +638,17 @@ pub fn production_service() -> &'static MiniappService {
     static SERVICE: std::sync::OnceLock<MiniappService> = std::sync::OnceLock::new();
     SERVICE.get_or_init(|| {
         dotenvy::dotenv().ok();
-        MiniappService::new(ServiceConfig::from_environment(), Arc::new(SystemClock))
+        let server_config = super::config::MiniappServerConfig::from_environment()
+            .unwrap_or_else(|status| panic!("{status}"));
+        let clock: Arc<dyn Clock> = Arc::new(SystemClock);
+        let auth = MiniappAuthService::from_server_config(&server_config, clock.clone())
+            .unwrap_or_else(|status| panic!("{status}"));
+        MiniappService::with_repository_and_auth(
+            ServiceConfig::from_environment(),
+            clock,
+            FixtureListingRepository::default(),
+            auth,
+        )
     })
 }
 
@@ -563,6 +689,27 @@ mod tests {
         validation::DONGGUAN_TOWNS,
     };
 
+    struct MockBailianInterpreter {
+        fail: bool,
+    }
+
+    impl DemandInterpreter for MockBailianInterpreter {
+        async fn interpret(
+            &self,
+            draft: DemandDraft,
+        ) -> Result<super::super::types::DemandInterpretation, String> {
+            if self.fail {
+                Err("synthetic provider failure".into())
+            } else {
+                Ok(super::super::types::DemandInterpretation {
+                    demand: draft,
+                    provider: "mock-bailian".into(),
+                    fallback_reason: None,
+                })
+            }
+        }
+    }
+
     fn clock() -> Arc<FixedClock> {
         Arc::new(FixedClock::new(
             1_723_305_600,
@@ -591,6 +738,26 @@ mod tests {
             .data
             .expect("session")
             .session_token
+    }
+
+    #[tokio::test]
+    async fn mock百炼成功和失败回退本地解析器() {
+        let source = demand("松山湖", 1400, 1600);
+        let success =
+            interpret_with_local_fallback(&MockBailianInterpreter { fail: false }, source.clone())
+                .await
+                .expect("mock success");
+        assert_eq!(success.provider, "mock-bailian");
+
+        let fallback =
+            interpret_with_local_fallback(&MockBailianInterpreter { fail: true }, source)
+                .await
+                .expect("local fallback");
+        assert_eq!(fallback.provider, "local");
+        assert_eq!(
+            fallback.fallback_reason.as_deref(),
+            Some("bailian_unavailable")
+        );
     }
 
     fn demand(town: &str, min: u32, max: u32) -> DemandDraft {

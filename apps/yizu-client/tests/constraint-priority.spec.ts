@@ -34,6 +34,6 @@ describe('三态条件优先级', () => {
     restored.hydrate()
     expect(effectiveConstraintLevel(restored.demand, 'freight_elevator')).toBe('unspecified')
     expect(restored.demand.constraint_priorities).toHaveLength(1)
-    expect((JSON.parse((uni.getStorageSync(DEMAND_STORAGE_KEY) as string)) as { version: number }).version).toBe(4)
+    expect((JSON.parse((uni.getStorageSync(DEMAND_STORAGE_KEY) as string)) as { version: number }).version).toBe(5)
   })
 })

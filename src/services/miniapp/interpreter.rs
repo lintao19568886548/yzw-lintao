@@ -102,6 +102,30 @@ pub fn interpret_local(mut draft: DemandDraft) -> Result<DemandDraft, String> {
         }
     }
 
+    if draft.constraints.industry_or_use.is_none() {
+        draft.constraints.industry_or_use = [
+            "电子制造",
+            "五金加工",
+            "食品生产",
+            "电商仓储",
+            "物流仓储",
+            "研发办公",
+        ]
+        .into_iter()
+        .find(|value| text.contains(value))
+        .map(str::to_string);
+    }
+    if draft.constraints.clear_height_m.is_none() {
+        draft.constraints.clear_height_m = number_before_keyword(&text, &["米层高", "米净高"])
+            .or_else(|| number_after_keyword(&text, &["层高", "净高"]))
+            .map(|value| value as f32);
+    }
+    if draft.constraints.floor_load_kg_sqm.is_none() {
+        draft.constraints.floor_load_kg_sqm = number_after_keyword(&text, &["承重", "荷载"])
+            .or_else(|| number_before_keyword(&text, &["公斤承重", "kg承重"]))
+            .map(|value| value.round() as u32);
+    }
+
     if draft.constraints.fire_requirement.is_none() {
         for rating in ["甲类", "乙类", "丙类", "丁类", "戊类"] {
             if text.contains(rating) && text.contains("消防") {
@@ -292,6 +316,18 @@ fn number_before_keyword(text: &str, keywords: &[&str]) -> Option<f64> {
     None
 }
 
+fn number_after_keyword(text: &str, keywords: &[&str]) -> Option<f64> {
+    for keyword in keywords {
+        if let Some(position) = text.find(keyword) {
+            let start = position + keyword.len();
+            if let Some(number) = numbers_in(head_chars(&text[start..], 18)).first() {
+                return Some(*number);
+            }
+        }
+    }
+    None
+}
+
 fn numbers_in(value: &str) -> Vec<f64> {
     let mut output = Vec::new();
     let mut current = String::new();
@@ -430,7 +466,9 @@ pub mod bailian {
     pub struct BailianConfig {
         pub key: String,
         pub model: String,
-        pub timeout_seconds: u64,
+        pub connect_timeout_seconds: u64,
+        pub request_timeout_seconds: u64,
+        pub total_timeout_seconds: u64,
         pub retry_attempts: usize,
     }
 
@@ -444,15 +482,23 @@ pub mod bailian {
                 model: model
                     .filter(|value| !value.trim().is_empty())
                     .unwrap_or_else(|| "qwen3.5-plus".into()),
-                timeout_seconds: 30,
-                retry_attempts: 3,
+                connect_timeout_seconds: 5,
+                request_timeout_seconds: 12,
+                total_timeout_seconds: 20,
+                retry_attempts: 2,
             })
         }
 
         pub fn from_env() -> Result<Self, String> {
             dotenvy::dotenv().ok();
+            let primary = std::env::var("BAILIAN_API_KEY").ok();
+            let legacy = std::env::var("ALIYUN_BAILIAN_KEY").ok();
+            if matches!((&primary, &legacy), (Some(left), Some(right)) if !left.trim().is_empty() && !right.trim().is_empty() && left != right)
+            {
+                return Err("BAILIAN_CONFIG=INVALID".into());
+            }
             Self::from_values(
-                std::env::var("ALIYUN_BAILIAN_KEY").ok(),
+                primary.or(legacy),
                 std::env::var("YIZU_MINIAPP_AI_MODEL").ok(),
             )
         }
@@ -466,7 +512,8 @@ pub mod bailian {
     impl BailianDemandInterpreter {
         pub fn new(config: BailianConfig) -> Result<Self, String> {
             let client = reqwest::Client::builder()
-                .timeout(Duration::from_secs(config.timeout_seconds))
+                .connect_timeout(Duration::from_secs(config.connect_timeout_seconds))
+                .timeout(Duration::from_secs(config.request_timeout_seconds))
                 .build()
                 .map_err(|_| "无法创建百炼客户端".to_string())?;
             Ok(Self { config, client })
@@ -474,9 +521,8 @@ pub mod bailian {
     }
 
     impl DemandInterpreter for BailianDemandInterpreter {
-        async fn interpret(&self, mut draft: DemandDraft) -> Result<DemandInterpretation, String> {
-            draft.raw_text =
-                strip_contact_numbers(&sanitize_user_text(&draft.raw_text, MAX_RAW_TEXT_CHARS)?);
+        async fn interpret(&self, draft: DemandDraft) -> Result<DemandInterpretation, String> {
+            let draft = scrub_demand_for_provider(draft)?;
             let payload = serde_json::json!({
                 "model": self.config.model,
                 "temperature": 0,
@@ -495,15 +541,24 @@ pub mod bailian {
             });
 
             let mut last_error = "百炼请求失败".to_string();
+            let deadline = tokio::time::Instant::now()
+                + Duration::from_secs(self.config.total_timeout_seconds);
             for attempt in 1..=self.config.retry_attempts {
-                let response = self
-                    .client
-                    .post("https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions")
-                    .bearer_auth(&self.config.key)
-                    .header(reqwest::header::CONTENT_TYPE, "application/json")
-                    .body(payload.to_string())
-                    .send()
-                    .await;
+                let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+                if remaining.is_zero() {
+                    return Err("百炼请求总超时".into());
+                }
+                let response = tokio::time::timeout(
+                    remaining,
+                    self.client
+                        .post("https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions")
+                        .bearer_auth(&self.config.key)
+                        .header(reqwest::header::CONTENT_TYPE, "application/json")
+                        .body(payload.to_string())
+                        .send(),
+                )
+                .await
+                .map_err(|_| "百炼请求总超时".to_string())?;
                 match response {
                     Ok(response) => {
                         let status = response.status();
@@ -538,7 +593,11 @@ pub mod bailian {
                         }
                     }
                 }
-                tokio::time::sleep(Duration::from_millis(150 * attempt as u64)).await;
+                let delay = Duration::from_millis(150 * attempt as u64);
+                if tokio::time::Instant::now() + delay >= deadline {
+                    return Err("百炼请求总超时".into());
+                }
+                tokio::time::sleep(delay).await;
             }
             Err(last_error)
         }
@@ -560,19 +619,58 @@ pub mod bailian {
         Ok(demand)
     }
 
+    fn scrub_demand_for_provider(mut draft: DemandDraft) -> Result<DemandDraft, String> {
+        draft.raw_text = scrub_text(&draft.raw_text, MAX_RAW_TEXT_CHARS)?;
+        for town in &mut draft.constraints.target_towns {
+            *town = scrub_text(town, 40)?;
+        }
+        for value in [
+            &mut draft.constraints.move_in_time,
+            &mut draft.constraints.floor_preference,
+            &mut draft.constraints.industry_or_use,
+            &mut draft.constraints.fire_requirement,
+            &mut draft.constraints.logistics_requirement,
+            &mut draft.constraints.loading_requirement,
+            &mut draft.constraints.other_notes,
+        ] {
+            if let Some(text) = value {
+                *text = scrub_text(text, 300)?;
+            }
+        }
+        for values in [
+            &mut draft.hard_conditions,
+            &mut draft.preference_conditions,
+            &mut draft.missing_fields,
+        ] {
+            for value in values {
+                *value = scrub_text(value, 300)?;
+            }
+        }
+        Ok(draft)
+    }
+
+    fn scrub_text(value: &str, max_chars: usize) -> Result<String, String> {
+        Ok(strip_contact_numbers(&sanitize_user_text(
+            value, max_chars,
+        )?))
+    }
+
     fn strip_contact_numbers(value: &str) -> String {
         let mut output = String::new();
-        let mut digits = String::new();
-        for character in value.chars().chain(std::iter::once(' ')) {
-            if character.is_ascii_digit() {
-                digits.push(character);
+        let mut candidate = String::new();
+        for character in value.chars().chain(std::iter::once('\n')) {
+            let candidate_continuation = character.is_ascii_digit()
+                || (!candidate.is_empty() && matches!(character, ' ' | '-' | 'X' | 'x'));
+            if candidate_continuation {
+                candidate.push(character);
             } else {
-                if digits.len() < 7 {
-                    output.push_str(&digits);
+                let digit_count = candidate.chars().filter(char::is_ascii_digit).count();
+                if (11..=18).contains(&digit_count) {
+                    output.push_str("[隐私号码已移除]");
                 } else {
-                    output.push_str("[联系方式已移除]");
+                    output.push_str(&candidate);
                 }
-                digits.clear();
+                candidate.clear();
                 output.push(character);
             }
         }
@@ -607,6 +705,19 @@ pub mod bailian {
             let synthetic_phone = ["139", "0000", "0000"].concat();
             let scrubbed = strip_contact_numbers(&format!("找厂房，联系{synthetic_phone}"));
             assert!(!scrubbed.contains(&synthetic_phone));
+            assert_eq!(strip_contact_numbers("面积1000"), "面积1000");
+
+            let separated = ["139", "-0000", "-0000"].concat();
+            let mut draft = DemandDraft {
+                raw_text: "找厂房".into(),
+                constraints: crate::services::miniapp::types::DemandConstraints {
+                    other_notes: Some(format!("联系电话 {separated}")),
+                    ..Default::default()
+                },
+                ..Default::default()
+            };
+            draft = scrub_demand_for_provider(draft).expect("scrub demand");
+            assert!(!draft.constraints.other_notes.unwrap().contains(&separated));
         }
     }
 }
@@ -690,5 +801,17 @@ mod tests {
         assert!(result.constraint_priorities.iter().any(|priority| {
             priority.key == ConstraintKey::PowerCapacity && priority.level == ConstraintLevel::Hard
         }));
+    }
+
+    #[test]
+    fn 解析用途层高和楼面承重() {
+        let result = interpret_local(draft("寮步找五金加工厂房，层高8.5米，承重1200公斤/平方米"))
+            .expect("local parser");
+        assert_eq!(
+            result.constraints.industry_or_use.as_deref(),
+            Some("五金加工")
+        );
+        assert_eq!(result.constraints.clear_height_m, Some(8.5));
+        assert_eq!(result.constraints.floor_load_kg_sqm, Some(1200));
     }
 }

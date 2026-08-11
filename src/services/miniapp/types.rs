@@ -58,6 +58,12 @@ pub struct DemandConstraints {
     pub needs_freight_elevator: Option<bool>,
     pub elevator_min_tons: Option<f32>,
     pub power_capacity_kva: Option<u32>,
+    #[serde(default)]
+    pub industry_or_use: Option<String>,
+    #[serde(default)]
+    pub clear_height_m: Option<f32>,
+    #[serde(default)]
+    pub floor_load_kg_sqm: Option<u32>,
     pub fire_requirement: Option<String>,
     pub logistics_requirement: Option<String>,
     pub loading_requirement: Option<String>,
@@ -246,9 +252,38 @@ pub struct DevSessionRequest {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DevSessionResponse {
     pub session_token: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refresh_token: Option<String>,
     pub masked_phone: String,
     pub expires_at_epoch_seconds: u64,
     pub local_demo: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SmsSendRequest {
+    pub phone: String,
+    pub device_id: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SmsVerifyRequest {
+    pub phone: String,
+    pub code: String,
+    pub device_id: String,
+    pub agreements_accepted: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SmsSendResponse {
+    pub expires_in_seconds: u64,
+    pub retry_after_seconds: u64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WechatLoginRequest {
+    pub code: String,
+    pub device_id: String,
+    pub agreements_accepted: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
