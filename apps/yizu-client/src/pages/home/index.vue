@@ -123,11 +123,20 @@ async function interpret(): Promise<void> {
       <view class="card quick-form">
         <text class="section-title">热门镇街与基础条件</text>
         <view class="chips"><button v-for="town in popularTowns" :key="town" class="chip" :class="{ active: selectedTown === town }" @click="chooseTown(town)">{{ town }}</button></view>
-        <view class="row field">
-          <view><text class="field-label">面积下限（㎡）</text><input v-model.number="areaMin" class="input" type="number" placeholder="如 1200" /></view>
-          <view><text class="field-label">面积上限（㎡）</text><input v-model.number="areaMax" class="input" type="number" placeholder="如 1800" /></view>
+        <view class="row field area-fields">
+          <view>
+            <text class="field-label">面积下限（㎡）</text>
+            <view class="field-control"><input v-model.number="areaMin" class="field-input" type="number" placeholder="如 1200" placeholder-class="field-placeholder" /></view>
+          </view>
+          <view>
+            <text class="field-label">面积上限（㎡）</text>
+            <view class="field-control"><input v-model.number="areaMax" class="field-input" type="number" placeholder="如 1800" placeholder-class="field-placeholder" /></view>
+          </view>
         </view>
-        <view class="field"><text class="field-label">月租预算（元）</text><input v-model="budgetYuan" class="input" type="digit" placeholder="可选，最多两位小数" /></view>
+        <view class="field">
+          <text class="field-label">月租预算（元）</text>
+          <view class="field-control"><input v-model="budgetYuan" class="field-input" type="digit" placeholder="可选，最多两位小数" placeholder-class="field-placeholder" /></view>
+        </view>
         <view v-if="metadata.notice" class="notice">{{ metadata.notice }}</view>
       </view>
 
@@ -163,7 +172,7 @@ async function interpret(): Promise<void> {
 .section-block { margin-top: 36rpx; }.space-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14rpx; }
 .space-card { display: flex; min-width: 0; margin: 0; padding: 24rpx 10rpx; flex-direction: column; align-items: center; border: 1rpx solid #e4d7c0; border-radius: 22rpx; background: #fffdf8; line-height: 1.4; }.space-card.active { border-color: #a51f28; background: #fff4ed; }
 .space-icon { display: grid; width: 64rpx; height: 64rpx; place-items: center; border-radius: 18rpx; background: #f5e7ca; color: #8d1d24; font-family: serif; font-size: 30rpx; font-weight: 900; }.space-label { margin-top: 13rpx; color: #4c2a25; font-size: 25rpx; font-weight: 900; }.space-desc { margin-top: 6rpx; color: #8b7770; font-size: 17rpx; }
-.quick-form { margin-top: 26rpx; }.recent-card { margin-top: 14rpx; }.recent-head { display: flex; justify-content: space-between; margin-bottom: 16rpx; color: #5b3430; font-size: 24rpx; font-weight: 800; }
+.quick-form { margin-top: 26rpx; }.area-fields > view { min-width: 0; }.recent-card { margin-top: 14rpx; }.recent-head { display: flex; justify-content: space-between; margin-bottom: 16rpx; color: #5b3430; font-size: 24rpx; font-weight: 800; }
 .process-card { margin-top: 34rpx; }.steps { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14rpx; }.steps view { position: relative; padding: 20rpx; border-radius: 18rpx; background: #faf5eb; }.steps text { color: #bc8d3d; font-family: serif; font-size: 27rpx; font-weight: 900; }.steps strong, .steps small { display: block; }.steps strong { margin-top: 8rpx; color: #57342d; font-size: 24rpx; }.steps small { margin-top: 5rpx; color: #8a766f; font-size: 19rpx; }
 .promise { display: flex; align-items: center; gap: 20rpx; margin: 26rpx 0; padding: 26rpx; border-radius: 24rpx; background: linear-gradient(135deg,#80131b,#a9262d); color: #fff3d2; }.promise-seal { display: grid; flex: 0 0 80rpx; width: 80rpx; height: 80rpx; place-items: center; border: 3rpx double #efc76c; border-radius: 50%; font-family: serif; font-size: 34rpx; font-weight: 900; }.promise strong,.promise small { display: block; }.promise strong { font-size: 24rpx; }.promise small { margin-top: 7rpx; color: #efdca9; font-size: 19rpx; }
 </style>

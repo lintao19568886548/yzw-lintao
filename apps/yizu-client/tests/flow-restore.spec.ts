@@ -65,10 +65,12 @@ describe('刷新与深链恢复', () => {
     form.rawText.value = '石龙30000元月租厂房'
     form.selectedType.value = 'factory'
     form.selectedTown.value = '石龙'
-    form.areaMin.value = 900
-    form.areaMax.value = 1000
+    form.areaMin.value = 500
+    form.areaMax.value = 1500
     form.budgetYuan.value = '30000'
     form.applyHomeToStore()
+    expect(store.demand.constraints.area_min_sqm).toBe(500)
+    expect(store.demand.constraints.area_max_sqm).toBe(1500)
     expect(store.demand.constraints.rent_max_cents).toBe(3_000_000)
 
     form.syncFromStore()
