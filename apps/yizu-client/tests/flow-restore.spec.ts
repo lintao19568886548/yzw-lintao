@@ -1,7 +1,7 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { restoreFlowState, useDemandForm } from '@/composables/useDemandForm'
 import { AUTH_STORAGE_KEY, useAuthStore } from '@/stores/auth'
-import { DEMAND_STORAGE_KEY, emptyDemand, useDemandStore } from '@/stores/demand'
+import { DEMAND_STORAGE_KEY, V2_DEMAND_STORAGE_KEY, emptyDemand, useDemandStore } from '@/stores/demand'
 import { installStorageMock } from './test-helpers'
 
 describe('刷新与深链恢复', () => {
@@ -93,5 +93,73 @@ describe('刷新与深链恢复', () => {
     expect(storage.has(AUTH_STORAGE_KEY)).toBe(false)
     expect(storage.has(DEMAND_STORAGE_KEY)).toBe(false)
     expect(storage.has('yizu-miniapp-demand-v1')).toBe(false)
+  })
+
+  function validSnapshot() {
+    return {
+      demand: emptyDemand(), interpretation: null, match_response: null, lead: null, idempotency_key: '',
+    }
+  }
+
+  it.each([
+    ['constraints=null', (snapshot: ReturnType<typeof validSnapshot>) => { (snapshot.demand as unknown as { constraints: null }).constraints = null }],
+    ['target_towns=null', (snapshot: ReturnType<typeof validSnapshot>) => { (snapshot.demand.constraints as unknown as { target_towns: null }).target_towns = null }],
+    ['area为字符串', (snapshot: ReturnType<typeof validSnapshot>) => { (snapshot.demand.constraints as unknown as { area_min_sqm: string }).area_min_sqm = '1000' }],
+    ['优先级key非法', (snapshot: ReturnType<typeof validSnapshot>) => { (snapshot.demand as unknown as { constraint_priorities: unknown[] }).constraint_priorities = [{ key: 'unknown', level: 'hard' }] }],
+    ['优先级level非法', (snapshot: ReturnType<typeof validSnapshot>) => { (snapshot.demand as unknown as { constraint_priorities: unknown[] }).constraint_priorities = [{ key: 'budget', level: 'maybe' }] }],
+    ['优先级重复', (snapshot: ReturnType<typeof validSnapshot>) => { (snapshot.demand as unknown as { constraint_priorities: unknown[] }).constraint_priorities = [{ key: 'budget', level: 'hard' }, { key: 'budget', level: 'preference' }] }],
+    ['match_response损坏', (snapshot: ReturnType<typeof validSnapshot>) => { (snapshot as unknown as { match_response: object }).match_response = { matches: null } }],
+    ['lead损坏', (snapshot: ReturnType<typeof validSnapshot>) => { (snapshot as unknown as { lead: object }).lead = { lead_number: 123 } }],
+  ])('深层损坏缓存（%s）整份清除且三个深链恢复均不抛异常', (_, corrupt) => {
+    for (const pageRead of [
+      (store: ReturnType<typeof useDemandStore>) => store.demand.constraints.target_towns.includes('松山湖'),
+      (store: ReturnType<typeof useDemandStore>) => store.match_response?.matches.map((item) => item.listing.listing_id),
+      (store: ReturnType<typeof useDemandStore>) => store.lead?.lead_number,
+    ]) {
+      const snapshot = validSnapshot()
+      corrupt(snapshot)
+      const storage = installStorageMock({
+        [DEMAND_STORAGE_KEY]: JSON.stringify({ version: 3, data: snapshot }),
+      })
+      setActivePinia(createPinia())
+      const auth = useAuthStore()
+      const store = useDemandStore()
+      expect(() => restoreFlowState(auth, store, () => { pageRead(store) })).not.toThrow()
+      expect(store.demand).toEqual(emptyDemand())
+      expect(storage.has(DEMAND_STORAGE_KEY)).toBe(false)
+    }
+  })
+
+  it('v2合法缓存按旧推断规则显式迁移为v3且删除旧key', () => {
+    const snapshot = validSnapshot()
+    snapshot.demand.raw_text = '需要货梯，最好靠近高速'
+    snapshot.demand.constraints.needs_freight_elevator = true
+    snapshot.demand.constraints.power_capacity_kva = 500
+    snapshot.demand.constraint_priorities = [{ key: 'power_capacity', level: 'preference' }]
+    const storage = installStorageMock({
+      [V2_DEMAND_STORAGE_KEY]: JSON.stringify({ version: 2, data: snapshot }),
+    })
+    setActivePinia(createPinia())
+    const store = useDemandStore()
+    expect(() => store.hydrate()).not.toThrow()
+    expect(store.demand.constraint_priorities).toEqual(expect.arrayContaining([
+      { key: 'freight_elevator', level: 'hard' },
+      { key: 'power_capacity', level: 'preference' },
+    ]))
+    expect(storage.has(V2_DEMAND_STORAGE_KEY)).toBe(false)
+    expect(storage.has(DEMAND_STORAGE_KEY)).toBe(true)
+  })
+
+  it('非法JSON和不可迁移v2缓存被清除', () => {
+    const storage = installStorageMock({
+      [DEMAND_STORAGE_KEY]: '{bad-json',
+      [V2_DEMAND_STORAGE_KEY]: JSON.stringify({ version: 2, data: { demand: { constraints: null } } }),
+    })
+    setActivePinia(createPinia())
+    const store = useDemandStore()
+    expect(() => store.hydrate()).not.toThrow()
+    expect(store.demand).toEqual(emptyDemand())
+    expect(storage.has(DEMAND_STORAGE_KEY)).toBe(false)
+    expect(storage.has(V2_DEMAND_STORAGE_KEY)).toBe(false)
   })
 })
