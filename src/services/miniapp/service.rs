@@ -14,8 +14,8 @@ use super::{
         SubmitLeadRequest,
     },
     validation::{
-        mask_phone, validate_demand, validate_idempotency_key, validate_phone,
-        validate_request_size, DONGGUAN_TOWNS,
+        mask_phone, normalize_constraint_priorities, validate_demand, validate_idempotency_key,
+        validate_phone, validate_request_size, DONGGUAN_TOWNS,
     },
 };
 
@@ -142,7 +142,7 @@ impl MiniappRuntime {
 
     fn submit_lead_at(
         &mut self,
-        request: SubmitLeadRequest,
+        mut request: SubmitLeadRequest,
         now: u64,
         repository: &FixtureListingRepository,
         clock: &dyn Clock,
@@ -158,6 +158,7 @@ impl MiniappRuntime {
         if !errors.is_empty() {
             return Err(ServiceError::validation(errors));
         }
+        normalize_constraint_priorities(&mut request.submission.demand);
         validate_idempotency_key(&request.submission.idempotency_key)
             .map_err(|error| ServiceError::validation(vec![error]))?;
         if request.submission.recommended_listing_ids.is_empty()
@@ -371,7 +372,7 @@ impl MiniappService {
         }
     }
 
-    pub fn handle_matches(&self, request: MatchRequest) -> ApiResponse<MatchResponse> {
+    pub fn handle_matches(&self, mut request: MatchRequest) -> ApiResponse<MatchResponse> {
         let request_id = self.request_id();
         if let Err(error) = validate_request_size(&request) {
             return ApiResponse::failure(
@@ -395,6 +396,7 @@ impl MiniappService {
         if !errors.is_empty() {
             return failure(request_id, ServiceError::validation(errors));
         }
+        normalize_constraint_priorities(&mut request.demand);
         ApiResponse::success(
             request_id,
             "匹配完成，结果仅为脱敏演示数据",
@@ -522,6 +524,29 @@ pub fn production_service() -> &'static MiniappService {
         dotenvy::dotenv().ok();
         MiniappService::new(ServiceConfig::from_environment(), Arc::new(SystemClock))
     })
+}
+
+#[cfg(test)]
+fn test_api_service_slot() -> &'static std::sync::RwLock<Option<Arc<MiniappService>>> {
+    static SERVICE: std::sync::OnceLock<std::sync::RwLock<Option<Arc<MiniappService>>>> =
+        std::sync::OnceLock::new();
+    SERVICE.get_or_init(|| std::sync::RwLock::new(None))
+}
+
+#[cfg(test)]
+pub fn install_test_api_service(service: Arc<MiniappService>) {
+    *test_api_service_slot()
+        .write()
+        .expect("test API service write lock") = Some(service);
+}
+
+#[cfg(test)]
+pub fn test_api_service() -> Arc<MiniappService> {
+    test_api_service_slot()
+        .read()
+        .expect("test API service read lock")
+        .clone()
+        .expect("HTTP E2E must install its isolated API service")
 }
 
 #[cfg(test)]
