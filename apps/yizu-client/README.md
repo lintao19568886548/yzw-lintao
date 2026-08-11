@@ -29,6 +29,7 @@ npm run type-check
 npm run test
 npm run build:h5
 npm run build:mp-weixin
+npm run check:mp-weixin-modules
 ```
 
 微信开发者工具导入目录：`apps/yizu-client/dist/build/mp-weixin`。仓库不包含真实微信 AppID，开发者需选择测试号或配置获授权 AppID。
