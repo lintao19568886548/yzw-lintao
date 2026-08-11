@@ -4,12 +4,27 @@
     { "path": "pages/home/index", "style": { "navigationStyle": "custom" } },
     { "path": "pages/confirm/index", "style": { "navigationBarTitleText": "确认找房需求", "navigationBarBackgroundColor": "#8f1720", "navigationBarTextStyle": "white" } },
     { "path": "pages/results/index", "style": { "navigationBarTitleText": "AI推荐房源", "navigationBarBackgroundColor": "#8f1720", "navigationBarTextStyle": "white" } },
-    { "path": "pages/success/index", "style": { "navigationBarTitleText": "提交成功", "navigationBarBackgroundColor": "#8f1720", "navigationBarTextStyle": "white" } }
+    { "path": "pages/listing-detail/index", "style": { "navigationBarTitleText": "房源详情", "navigationBarBackgroundColor": "#8f1720", "navigationBarTextStyle": "white" } },
+    { "path": "pages/lead-confirm/index", "style": { "navigationBarTitleText": "确认提交需求", "navigationBarBackgroundColor": "#8f1720", "navigationBarTextStyle": "white" } },
+    { "path": "pages/success/index", "style": { "navigationBarTitleText": "提交成功", "navigationBarBackgroundColor": "#8f1720", "navigationBarTextStyle": "white" } },
+    { "path": "pages/demands/index", "style": { "navigationBarTitleText": "我的需求", "navigationBarBackgroundColor": "#fffdf7", "navigationBarTextStyle": "black" } },
+    { "path": "pages/profile/index", "style": { "navigationBarTitleText": "我的", "navigationBarBackgroundColor": "#fffdf7", "navigationBarTextStyle": "black" } }
   ],
+  "tabBar": {
+    "color": "#7b6a63",
+    "selectedColor": "#9b1d26",
+    "backgroundColor": "#fffdf8",
+    "borderStyle": "white",
+    "list": [
+      { "pagePath": "pages/home/index", "text": "AI找房" },
+      { "pagePath": "pages/demands/index", "text": "我的需求" },
+      { "pagePath": "pages/profile/index", "text": "我的" }
+    ]
+  },
   "globalStyle": {
-    "backgroundColor": "#f7f2e8",
+    "backgroundColor": "#f6f3ed",
     "navigationBarTextStyle": "black",
     "navigationBarTitleText": "宜租网",
-    "navigationBarBackgroundColor": "#f7f2e8"
+    "navigationBarBackgroundColor": "#fffdf7"
   }
 }
