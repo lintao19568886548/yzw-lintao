@@ -7,7 +7,7 @@
     "dev:h5": "uni",
     "build:h5": "uni build",
     "dev:mp-weixin": "uni -p mp-weixin",
-    "build:mp-weixin": "uni build -p mp-weixin",
+    "build:mp-weixin": "node scripts/build-mp-weixin.mjs",
     "postbuild:mp-weixin": "npm run check:mp-weixin-wxss && npm run check:mp-weixin-modules",
     "check:mp-weixin-wxss": "node scripts/check-mp-weixin-wxss.mjs",
     "check:mp-weixin-modules": "node scripts/check-mp-weixin-modules.mjs",

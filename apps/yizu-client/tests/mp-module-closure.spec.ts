@@ -2,6 +2,8 @@ import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 // @ts-expect-error Native Node ESM checker intentionally has no TypeScript declaration file.
 import { analyzeModuleSources, extractRelativeRequires } from '../scripts/check-mp-weixin-modules.mjs'
+// @ts-expect-error Native Node ESM publisher intentionally has no TypeScript declaration file.
+import { publicationPlan } from '../scripts/build-mp-weixin.mjs'
 
 const repositoryRoot = fileURLToPath(new URL('../../..', import.meta.url))
 
@@ -57,5 +59,16 @@ describe('微信构建模块依赖完整性', () => {
     expect(existsSync(devicePath)).toBe(true)
     expect(client).toContain("from '@/utils/device'")
     expect(client).not.toMatch(/utils\/device\.js['"]/u)
+  })
+
+  it('安全发布时先写入被依赖模块并最后用 app.json 触发重载', () => {
+    const analysis = analyzeModuleSources(completeSources)
+    const plan = publicationPlan([...completeSources.keys(), 'app.json', 'app.wxss'], analysis.graph)
+
+    expect(plan[0]).toBe('app.json')
+    expect(plan.at(-1)).toBe('app.json')
+    expect(plan.indexOf('utils/device.js')).toBeLessThan(plan.indexOf('api/client.js'))
+    expect(plan.indexOf('api/client.js')).toBeLessThan(plan.indexOf('api/miniapp.js'))
+    expect(plan.indexOf('api/miniapp.js')).toBeLessThan(plan.indexOf('pages/login/index.js'))
   })
 })

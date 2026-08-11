@@ -74,6 +74,7 @@ export function analyzeModuleSources(moduleSources, entryPaths = [LOGIN_ENTRY]) 
     jsFileCount: [...sources.keys()].filter((filePath) => filePath.endsWith('.js')).length,
     relativeRequireCount,
     missing,
+    graph,
     entryClosures,
   }
 }
