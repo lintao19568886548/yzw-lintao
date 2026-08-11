@@ -1,9 +1,17 @@
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import {
   agreementFromCheckboxEvent,
   canSubmitLogin,
   completeDemoLogin,
   phoneFromInputEvent,
 } from '@/pages/login/model'
+
+const loginPageSource = readFileSync(
+  fileURLToPath(new URL('../src/pages/login/index.vue', import.meta.url)),
+  'utf8',
+)
+const loginTemplate = loginPageSource.match(/<template>([\s\S]*?)<\/template>/u)?.[1] ?? ''
 
 describe('登录页状态与演示登录', () => {
   const phone = ['139', '0000', '0000'].join('')
@@ -51,5 +59,36 @@ describe('登录页状态与演示登录', () => {
       createSession: vi.fn().mockRejectedValue(new Error('模拟登录失败')),
       saveSession: vi.fn(), navigateToAiHome: vi.fn(),
     })).rejects.toThrow('模拟登录失败')
+  })
+
+  it('渲染新的品牌层级、服务范围与信任信息', () => {
+    expect(loginTemplate).toContain('宜租网')
+    expect(loginTemplate).toContain('企业选址服务 · AI智能匹配')
+    expect(loginTemplate).toContain('说出需求，AI帮您匹配合适空间')
+    expect(loginTemplate).toContain('厂房 · 仓库 · 写字楼')
+    expect(loginTemplate).toContain('真实房源｜专业顾问｜15分钟响应')
+    expect(loginTemplate).toContain('宜租网——企业选址与空间租赁智能服务平台')
+  })
+
+  it('演示标签只受 localDemoMode 控制且不暴露开发计划', () => {
+    expect(loginTemplate).toMatch(/v-if="localDemoMode" class="demo-badge">本地演示 · 不发送短信/u)
+    expect(loginTemplate).not.toContain('后续登录能力')
+    expect(loginTemplate).not.toContain('微信手机号一键登录')
+    expect(loginTemplate).not.toContain('企业实名认证')
+    expect(loginTemplate).not.toContain('即将接入')
+  })
+
+  it('协议只展示一次且控件仍绑定真实状态', () => {
+    expect(loginTemplate.match(/《用户协议》/gu)).toHaveLength(1)
+    expect(loginTemplate.match(/《隐私政策》/gu)).toHaveLength(1)
+    expect(loginTemplate).toContain(':checked="agreed"')
+    expect(loginTemplate).toContain('@change="onAgreementChange"')
+  })
+
+  it('视觉重构保留手机号输入、提交条件和登录处理器绑定', () => {
+    expect(loginTemplate).toContain(':value="phone"')
+    expect(loginTemplate).toContain('@input="onPhoneInput"')
+    expect(loginTemplate).toContain(':disabled="!canSubmit"')
+    expect(loginTemplate).toContain('@click="login"')
   })
 })

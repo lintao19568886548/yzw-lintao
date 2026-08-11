@@ -24,7 +24,8 @@ describe('宜租网品牌定位文案', () => {
   it('统一品牌定位、首页主标题、服务范围与信任文案', () => {
     expect(brandHeader).toContain('企业选址服务 · AI智能匹配')
     expect(brandHeader).toContain('真实房源 · 专业顾问 · 15分钟响应')
-    expect(login).toContain('让企业找空间，像说一句话一样简单')
+    expect(login).toContain('说出需求，AI帮您匹配合适空间')
+    expect(login).toContain('厂房 · 仓库 · 写字楼')
     expect(home).toContain('厂房 · 仓库 · 写字楼')
   })
 
