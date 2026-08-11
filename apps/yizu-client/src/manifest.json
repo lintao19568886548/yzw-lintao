@@ -1,7 +1,7 @@
 {
   "name": "宜租网微信小程序MVP",
   "appid": "__UNI__YIZU_AI_DEMO",
-  "description": "东莞厂房、仓库、写字楼AI智能找房",
+  "description": "宜租网——企业选址与空间租赁智能服务平台",
   "versionName": "0.2.0",
   "versionCode": "200",
   "transformPx": false,

@@ -101,7 +101,7 @@ async function login(): Promise<void> {
       <view class="welcome">
         <DemoBadge v-if="localDemoMode" />
         <text class="page-kicker">企业找房入口</text>
-        <text class="page-title">让找产业空间，像说一句话一样简单</text>
+        <text class="page-title">让企业找空间，像说一句话一样简单</text>
         <text class="page-desc">登录后描述需求，AI 将整理条件、推荐已核验房源，并连接专业招商顾问。</text>
       </view>
       <view class="card login-card">

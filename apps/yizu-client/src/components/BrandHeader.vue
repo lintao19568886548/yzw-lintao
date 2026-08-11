@@ -9,11 +9,11 @@ withDefaults(defineProps<{ compact?: boolean; showTrust?: boolean }>(), { compac
       <view class="seal"><text>宜</text><text>租</text></view>
       <view class="brand-copy">
         <view class="name-row"><text class="brand-name">宜租网</text><text class="ai-badge">AI 找房</text></view>
-        <text class="brand-slogan">东莞产业空间 · 智能可信匹配</text>
+        <text class="brand-slogan">企业选址服务 · AI智能匹配</text>
       </view>
     </view>
     <view v-if="showTrust" class="trust-row">
-      <text>✓ 已核验房源优先</text><text>✓ 隐私脱敏</text><text>✓ 15分钟响应</text>
+      <text>真实房源 · 专业顾问 · 15分钟响应</text>
     </view>
   </view>
 </template>

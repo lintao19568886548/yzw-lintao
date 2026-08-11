@@ -95,10 +95,10 @@ async function interpret(): Promise<void> {
     <BrandHeader />
     <view class="page-shell content-width">
       <view class="hero-copy">
-        <view class="hero-badges"><DemoBadge v-if="localDemoMode" /><text class="tag green">已核验房源优先</text></view>
-        <text class="page-kicker">东莞产业空间智能匹配</text>
+        <view class="hero-badges"><DemoBadge v-if="localDemoMode" /><text class="tag green">东莞全市服务</text></view>
+        <text class="page-kicker">企业选址服务 · AI智能匹配</text>
         <text class="hero-title">说出需求，<text>AI 帮你找空间</text></text>
-        <text class="page-desc">厂房、仓库、写字楼，一句话描述，最快 1 分钟获得专业匹配建议。</text>
+        <text class="page-desc">厂房 · 仓库 · 写字楼，一句话描述，最快 1 分钟获得专业匹配建议。</text>
       </view>
 
       <view class="card ai-box">
