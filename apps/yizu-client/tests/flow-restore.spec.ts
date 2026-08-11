@@ -1,7 +1,7 @@
 import { createPinia, setActivePinia } from 'pinia'
 import { restoreFlowState, useDemandForm } from '@/composables/useDemandForm'
 import { AUTH_STORAGE_KEY, useAuthStore } from '@/stores/auth'
-import { DEMAND_STORAGE_KEY, V2_DEMAND_STORAGE_KEY, emptyDemand, useDemandStore } from '@/stores/demand'
+import { DEMAND_STORAGE_KEY, V2_DEMAND_STORAGE_KEY, V3_DEMAND_STORAGE_KEY, emptyDemand, useDemandStore } from '@/stores/demand'
 import { installStorageMock } from './test-helpers'
 
 describe('刷新与深链恢复', () => {
@@ -97,7 +97,7 @@ describe('刷新与深链恢复', () => {
 
   function validSnapshot() {
     return {
-      demand: emptyDemand(), interpretation: null, match_response: null, lead: null, idempotency_key: '',
+      demand: emptyDemand(), interpretation: null, match_response: null, lead: null, idempotency_key: '', selected_listing_ids: [],
     }
   }
 
@@ -119,7 +119,7 @@ describe('刷新与深链恢复', () => {
       const snapshot = validSnapshot()
       corrupt(snapshot)
       const storage = installStorageMock({
-        [DEMAND_STORAGE_KEY]: JSON.stringify({ version: 3, data: snapshot }),
+        [DEMAND_STORAGE_KEY]: JSON.stringify({ version: 4, data: snapshot }),
       })
       setActivePinia(createPinia())
       const auth = useAuthStore()
@@ -130,7 +130,7 @@ describe('刷新与深链恢复', () => {
     }
   })
 
-  it('v2合法缓存按旧推断规则显式迁移为v3且删除旧key', () => {
+  it('v2合法缓存按旧推断规则显式迁移为v4且删除旧key', () => {
     const snapshot = validSnapshot()
     snapshot.demand.raw_text = '需要货梯，最好靠近高速'
     snapshot.demand.constraints.needs_freight_elevator = true
@@ -147,6 +147,21 @@ describe('刷新与深链恢复', () => {
       { key: 'power_capacity', level: 'preference' },
     ]))
     expect(storage.has(V2_DEMAND_STORAGE_KEY)).toBe(false)
+    expect(storage.has(DEMAND_STORAGE_KEY)).toBe(true)
+  })
+
+  it('v3合法缓存迁移为v4并补充空意向列表', () => {
+    const snapshot = validSnapshot()
+    const legacy = { ...snapshot } as Partial<typeof snapshot>
+    delete legacy.selected_listing_ids
+    const storage = installStorageMock({
+      [V3_DEMAND_STORAGE_KEY]: JSON.stringify({ version: 3, data: legacy }),
+    })
+    setActivePinia(createPinia())
+    const store = useDemandStore()
+    expect(() => store.hydrate()).not.toThrow()
+    expect(store.selected_listing_ids).toEqual([])
+    expect(storage.has(V3_DEMAND_STORAGE_KEY)).toBe(false)
     expect(storage.has(DEMAND_STORAGE_KEY)).toBe(true)
   })
 
