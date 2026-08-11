@@ -293,6 +293,12 @@ pub fn constraint_has_value(demand: &DemandDraft, key: &ConstraintKey) -> bool {
     }
 }
 
+pub fn normalize_constraint_priorities(demand: &mut DemandDraft) {
+    demand
+        .constraint_priorities
+        .sort_by(|left, right| left.key.cmp(&right.key));
+}
+
 pub fn validate_idempotency_key(value: &str) -> Result<(), ApiFieldError> {
     if !(16..=128).contains(&value.len())
         || !value
@@ -352,6 +358,7 @@ fn field_error(field: impl Into<String>, message: impl Into<String>) -> ApiField
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::services::miniapp::types::{ConstraintKey, ConstraintLevel, ConstraintPriority};
 
     #[test]
     fn 手机号格式严格校验() {
@@ -384,6 +391,62 @@ mod tests {
         assert!(validate_demand(&demand, false)
             .iter()
             .any(|error| error.field == "constraints.move_in_time"));
+    }
+
+    #[test]
+    fn 重复结构化优先级被拒绝() {
+        let mut demand = DemandDraft {
+            raw_text: "需要带货梯厂房".into(),
+            ..Default::default()
+        };
+        demand.constraints.needs_freight_elevator = Some(true);
+        demand.constraint_priorities = vec![
+            ConstraintPriority {
+                key: ConstraintKey::FreightElevator,
+                level: ConstraintLevel::Preference,
+            },
+            ConstraintPriority {
+                key: ConstraintKey::FreightElevator,
+                level: ConstraintLevel::Hard,
+            },
+        ];
+        assert!(validate_demand(&demand, false)
+            .iter()
+            .any(|error| error.field == "constraint_priorities"));
+    }
+
+    #[test]
+    fn 合法结构化优先级按key规范化() {
+        let mut demand = DemandDraft::default();
+        demand.constraint_priorities = vec![
+            ConstraintPriority {
+                key: ConstraintKey::PowerCapacity,
+                level: ConstraintLevel::Preference,
+            },
+            ConstraintPriority {
+                key: ConstraintKey::Budget,
+                level: ConstraintLevel::Hard,
+            },
+        ];
+        normalize_constraint_priorities(&mut demand);
+        assert_eq!(demand.constraint_priorities[0].key, ConstraintKey::Budget);
+        assert_eq!(
+            demand.constraint_priorities[1].key,
+            ConstraintKey::PowerCapacity
+        );
+    }
+
+    #[test]
+    fn 非法优先级字符串无法反序列化() {
+        let invalid = serde_json::json!({"key":"freight_elevator","level":"maybe"});
+        assert!(serde_json::from_value::<ConstraintPriority>(invalid).is_err());
+        let unspecified = serde_json::json!({"key":"freight_elevator","level":"unspecified"});
+        assert_eq!(
+            serde_json::from_value::<ConstraintPriority>(unspecified)
+                .expect("valid three-state level")
+                .level,
+            ConstraintLevel::Unspecified
+        );
     }
 
     #[test]

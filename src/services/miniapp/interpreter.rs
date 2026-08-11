@@ -447,7 +447,7 @@ pub mod bailian {
                 "max_tokens": 1200,
                 "response_format": { "type": "json_object" },
                 "messages": [
-                    { "role": "system", "content": "你是东莞工业空间需求解析器。只返回一个严格 JSON 对象，字段必须与给定 demand schema 一致；支持字段使用constraint_priorities的类型化key和hard/preference级别；无法确认的值使用null或空数组，禁止猜测；hard_conditions只保留无法映射的其他硬条件。" },
+                    { "role": "system", "content": "你是东莞工业空间需求解析器。只返回一个严格 JSON 对象，字段必须与给定 demand schema 一致；支持字段使用constraint_priorities的类型化key和hard/preference/unspecified级别；无法确认的值使用null或空数组，禁止猜测；hard_conditions只保留无法映射的其他硬条件。" },
                     { "role": "user", "content": serde_json::json!({
                         "raw_text": draft.raw_text,
                         "known_draft": draft,

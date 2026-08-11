@@ -229,6 +229,7 @@ fn assess_constraints(
             (ConstraintLevel::Preference, AssessmentState::Unmet | AssessmentState::Unverified) => {
                 output.unmet_preferences.push(assessment)
             }
+            (ConstraintLevel::Unspecified, _) => {}
         }
     }
 
@@ -265,7 +266,11 @@ fn effective_level(demand: &DemandDraft, key: &ConstraintKey) -> Option<Constrai
         .iter()
         .find(|priority| &priority.key == key)
     {
-        return Some(priority.level.clone());
+        return match priority.level {
+            ConstraintLevel::Hard => Some(ConstraintLevel::Hard),
+            ConstraintLevel::Preference => Some(ConstraintLevel::Preference),
+            ConstraintLevel::Unspecified => None,
+        };
     }
     if *key == ConstraintKey::FreightElevator
         && demand.constraints.needs_freight_elevator == Some(true)
@@ -754,6 +759,42 @@ mod tests {
             result.unmet_hard_constraints[0].key,
             Some(ConstraintKey::FreightElevator)
         );
+    }
+
+    #[test]
+    fn 货梯显式偏好不阻断且显式不指定完全跳过() {
+        let mut request = demand(900, 1100);
+        request.constraints.needs_freight_elevator = Some(true);
+        let mut listing = FixtureListingRepository::default().list().remove(4);
+        listing.has_freight_elevator = Some(false);
+        request.constraint_priorities = vec![priority(
+            ConstraintKey::FreightElevator,
+            ConstraintLevel::Preference,
+        )];
+        let preference = score_one(&request, listing.clone());
+        assert!(preference.unmet_hard_constraints.is_empty());
+        assert_eq!(preference.unmet_preferences.len(), 1);
+
+        request.constraint_priorities[0].level = ConstraintLevel::Unspecified;
+        let unspecified = score_one(&request, listing);
+        assert!(unspecified.unmet_hard_constraints.is_empty());
+        assert!(unspecified.unverified_hard_constraints.is_empty());
+        assert!(unspecified.unmet_preferences.is_empty());
+    }
+
+    #[test]
+    fn 货梯显式硬条件无法核验时阻断() {
+        let mut request = demand(900, 1100);
+        request.constraints.needs_freight_elevator = Some(true);
+        request.constraint_priorities = vec![priority(
+            ConstraintKey::FreightElevator,
+            ConstraintLevel::Hard,
+        )];
+        let mut listing = FixtureListingRepository::default().list().remove(0);
+        listing.has_freight_elevator = None;
+        let result = score_one(&request, listing);
+        assert!(result.unmet_hard_constraints.is_empty());
+        assert_eq!(result.unverified_hard_constraints.len(), 1);
     }
 
     #[test]

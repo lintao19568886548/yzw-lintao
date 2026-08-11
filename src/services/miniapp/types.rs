@@ -35,6 +35,7 @@ pub enum ConstraintKey {
 pub enum ConstraintLevel {
     Hard,
     Preference,
+    Unspecified,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

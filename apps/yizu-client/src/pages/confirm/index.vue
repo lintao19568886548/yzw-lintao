@@ -11,6 +11,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useDemandStore } from '@/stores/demand'
 import { useMetadataStore } from '@/stores/metadata'
 import type { ConstraintKey, ConstraintLevel, RentUnit, SpaceType } from '@/types/domain'
+import { constraintHasValue, effectiveConstraintLevel, setConstraintLevel } from '@/utils/constraint-priority'
 import { validateConfirmedDemand } from '@/utils/validation'
 
 const auth = useAuthStore()
@@ -35,22 +36,14 @@ const constraintLabels: Record<ConstraintKey, string> = {
   fire_safety: '消防要求', truck_access: '货车通行', loading_dock: '装卸条件', sublease: '接受分租',
   floor: '楼层', move_in: '入驻时间',
 }
-const priorityOptions = ['偏好', '硬条件', '不指定']
+const priorityOptions: Array<{ value: ConstraintLevel; label: string }> = [
+  { value: 'preference', label: '偏好' },
+  { value: 'hard', label: '硬条件' },
+  { value: 'unspecified', label: '不指定' },
+]
 
 const applicableConstraintKeys = computed<ConstraintKey[]>(() => {
-  const value = demand.value.constraints
-  return (Object.keys(constraintLabels) as ConstraintKey[]).filter((key) => ({
-    budget: value.rent_max_cents !== null && value.rent_unit !== null,
-    freight_elevator: value.needs_freight_elevator === true,
-    elevator_capacity: value.elevator_min_tons !== null,
-    power_capacity: value.power_capacity_kva !== null,
-    fire_safety: Boolean(value.fire_requirement),
-    truck_access: Boolean(value.logistics_requirement),
-    loading_dock: Boolean(value.loading_requirement),
-    sublease: value.accepts_sublease !== null,
-    floor: Boolean(value.floor_preference),
-    move_in: Boolean(value.move_in_time),
-  })[key])
+  return (Object.keys(constraintLabels) as ConstraintKey[]).filter((key) => constraintHasValue(demand.value, key))
 })
 
 const spaceLabel = computed(() => spaceOptions.find((item) => item.value === demand.value.constraints.space_type)?.label ?? '请选择')
@@ -84,8 +77,7 @@ function changeTowns(event: { detail: { value: string[] } }): void {
 function changeFreightElevator(event: unknown): void {
   const value = (event as { detail?: { value?: unknown } }).detail?.value
   demand.value.constraints.needs_freight_elevator = typeof value === 'boolean' ? value : null
-  if (value === true) setPriority('freight_elevator', 'hard')
-  else setPriority('freight_elevator', null)
+  setConstraintLevel(demand.value, 'freight_elevator', value === true ? 'hard' : 'unspecified')
 }
 
 function pickSublease(event: { detail: { value: number } }): void {
@@ -93,18 +85,13 @@ function pickSublease(event: { detail: { value: number } }): void {
 }
 
 function priorityLabel(key: ConstraintKey): string {
-  const explicit = demand.value.constraint_priorities.find((item) => item.key === key)?.level
-  if (explicit === 'hard' || (key === 'freight_elevator' && demand.value.constraints.needs_freight_elevator)) return '硬条件'
-  return '偏好'
-}
-
-function setPriority(key: ConstraintKey, level: ConstraintLevel | null): void {
-  demand.value.constraint_priorities = demand.value.constraint_priorities.filter((item) => item.key !== key)
-  if (level) demand.value.constraint_priorities.push({ key, level })
+  const labels: Record<ConstraintLevel, string> = { hard: '硬条件', preference: '偏好', unspecified: '不指定' }
+  return labels[effectiveConstraintLevel(demand.value, key)]
 }
 
 function changePriority(key: ConstraintKey, event: { detail: { value: number } }): void {
-  setPriority(key, ["preference", "hard", null][event.detail.value] as ConstraintLevel | null)
+  const selected = priorityOptions[event.detail.value]
+  if (selected) setConstraintLevel(demand.value, key, selected.value)
 }
 
 async function match(): Promise<void> {
@@ -191,7 +178,7 @@ async function match(): Promise<void> {
         <text class="field-label">条件优先级（服务端强制执行硬条件）</text>
         <view v-for="key in applicableConstraintKeys" :key="key" class="priority-row">
           <text>{{ constraintLabels[key] }}</text>
-          <picker :range="priorityOptions" @change="changePriority(key, $event)"><view class="picker compact">{{ priorityLabel(key) }}</view></picker>
+          <picker :range="priorityOptions" range-key="label" @change="changePriority(key, $event)"><view class="picker compact">{{ priorityLabel(key) }}</view></picker>
         </view>
       </view>
       <view class="field"><text class="field-label">其他补充</text><textarea v-model="demand.constraints.other_notes" class="textarea small" maxlength="500" /></view>

@@ -3,7 +3,7 @@ export type RentUnit = 'yuan_per_month' | 'yuan_per_square_metre_month'
 export type ListingVerificationLevel = 'l0' | 'l1' | 'l2' | 'l3'
 export type AdvisorAssignmentStatus = 'pending_assignment'
 export type ConstraintKey = 'budget' | 'freight_elevator' | 'elevator_capacity' | 'power_capacity' | 'fire_safety' | 'truck_access' | 'loading_dock' | 'sublease' | 'floor' | 'move_in'
-export type ConstraintLevel = 'hard' | 'preference'
+export type ConstraintLevel = 'hard' | 'preference' | 'unspecified'
 
 export interface ConstraintPriority {
   key: ConstraintKey
