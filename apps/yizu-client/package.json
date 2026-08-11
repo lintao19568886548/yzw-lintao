@@ -8,6 +8,8 @@
     "build:h5": "uni build",
     "dev:mp-weixin": "uni -p mp-weixin",
     "build:mp-weixin": "uni build -p mp-weixin",
+    "postbuild:mp-weixin": "npm run check:mp-weixin-wxss",
+    "check:mp-weixin-wxss": "node scripts/check-mp-weixin-wxss.mjs",
     "type-check": "vue-tsc --noEmit",
     "test": "vitest run",
     "lint": "vue-tsc --noEmit"
