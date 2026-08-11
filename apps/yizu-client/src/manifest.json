@@ -1,9 +1,9 @@
 {
-  "name": "宜租网AI找房演示",
+  "name": "宜租网微信小程序MVP",
   "appid": "__UNI__YIZU_AI_DEMO",
-  "description": "宜租网第一条AI找房业务垂直切片",
-  "versionName": "0.1.0",
-  "versionCode": "100",
+  "description": "东莞厂房、仓库、写字楼AI智能找房",
+  "versionName": "0.2.0",
+  "versionCode": "200",
   "transformPx": false,
   "uniStatistics": {
     "enable": false
