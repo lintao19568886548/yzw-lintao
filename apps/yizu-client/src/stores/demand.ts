@@ -6,10 +6,11 @@ import type {
 import { CONSTRAINT_KEYS, CONSTRAINT_LEVELS, materializeLegacyPriorities } from '@/utils/constraint-priority'
 import { readJson, readVersionedJson, removeStored, writeVersionedJson } from '@/utils/storage'
 
-export const DEMAND_STORAGE_KEY = 'yizu-miniapp-demand-v3'
+export const DEMAND_STORAGE_KEY = 'yizu-miniapp-demand-v4'
+export const V3_DEMAND_STORAGE_KEY = 'yizu-miniapp-demand-v3'
 export const V2_DEMAND_STORAGE_KEY = 'yizu-miniapp-demand-v2'
 const V1_DEMAND_STORAGE_KEY = 'yizu-miniapp-demand-v1'
-const DEMAND_STORAGE_VERSION = 3
+const DEMAND_STORAGE_VERSION = 4
 
 export function emptyDemand(): DemandDraft {
   return {
@@ -31,6 +32,7 @@ export interface DemandSnapshot {
   match_response: MatchResponse | null
   lead: LeadRecord | null
   idempotency_key: string
+  selected_listing_ids: string[]
 }
 
 interface DemandState extends DemandSnapshot {
@@ -105,6 +107,10 @@ function isDemand(value: unknown, levels: readonly ConstraintLevel[] = CONSTRAIN
     && isFiniteNumber(value.ai_confidence)
 }
 
+export function isDemandDraft(value: unknown): value is DemandDraft {
+  return isDemand(value)
+}
+
 function isAssessment(value: unknown): value is ConstraintAssessment {
   return isRecord(value) && (value.key === null || isOneOf(value.key, CONSTRAINT_KEYS))
     && typeof value.label === 'string' && typeof value.detail === 'string'
@@ -128,6 +134,10 @@ function isListing(value: unknown): value is ListingSummary {
     && isNullableString(value.fire_rating) && isNullableBoolean(value.truck_access)
     && isNullableBoolean(value.loading_dock) && isNullableBoolean(value.allows_sublease)
     && isNullableString(value.floor_label) && isStringArray(value.data_gaps)
+}
+
+export function isListingSummary(value: unknown): value is ListingSummary {
+  return isListing(value)
 }
 
 function isAssessmentArray(value: unknown): value is ConstraintAssessment[] {
@@ -163,11 +173,16 @@ function isLead(value: unknown, levels: readonly ConstraintLevel[]): value is Le
     && isFiniteNumber(value.created_at_epoch_seconds) && typeof value.temporary_storage === 'boolean')
 }
 
-function isDemandSnapshotWithLevels(value: unknown, levels: readonly ConstraintLevel[]): value is DemandSnapshot {
+function isLegacySnapshotWithLevels(value: unknown, levels: readonly ConstraintLevel[]): boolean {
   if (!isRecord(value)) return false
   return isDemand(value.demand, levels) && isInterpretation(value.interpretation, levels)
     && (value.match_response === null || isMatchResponse(value.match_response))
     && isLead(value.lead, levels) && typeof value.idempotency_key === 'string'
+}
+
+function isDemandSnapshotWithLevels(value: unknown, levels: readonly ConstraintLevel[]): value is DemandSnapshot {
+  return isLegacySnapshotWithLevels(value, levels)
+    && isRecord(value) && isStringArray(value.selected_listing_ids)
 }
 
 export function isDemandSnapshot(value: unknown): value is DemandSnapshot {
@@ -176,11 +191,19 @@ export function isDemandSnapshot(value: unknown): value is DemandSnapshot {
 
 function migrateV2Snapshot(value: unknown): DemandSnapshot | null {
   const v2Levels: readonly ConstraintLevel[] = ['hard', 'preference']
-  if (!isDemandSnapshotWithLevels(value, v2Levels)) return null
+  if (!isLegacySnapshotWithLevels(value, v2Levels)) return null
   const migrated = JSON.parse(JSON.stringify(value)) as DemandSnapshot
+  migrated.selected_listing_ids = []
   migrated.demand = materializeLegacyPriorities(migrated.demand)
   if (migrated.interpretation) migrated.interpretation.demand = materializeLegacyPriorities(migrated.interpretation.demand)
   if (migrated.lead) migrated.lead.demand_snapshot = materializeLegacyPriorities(migrated.lead.demand_snapshot)
+  return isDemandSnapshot(migrated) ? migrated : null
+}
+
+function migrateV3Snapshot(value: unknown): DemandSnapshot | null {
+  if (!isLegacySnapshotWithLevels(value, CONSTRAINT_LEVELS)) return null
+  const migrated = JSON.parse(JSON.stringify(value)) as DemandSnapshot
+  migrated.selected_listing_ids = []
   return isDemandSnapshot(migrated) ? migrated : null
 }
 
@@ -191,6 +214,7 @@ export function newIdempotencyKey(now = Date.now(), random = Math.random()): str
 export const useDemandStore = defineStore('demand', {
   state: (): DemandState => ({
     demand: emptyDemand(), interpretation: null, match_response: null, lead: null, idempotency_key: '',
+    selected_listing_ids: [],
     interpreting: false, matching: false, submitting: false,
   }),
   actions: {
@@ -200,11 +224,13 @@ export const useDemandStore = defineStore('demand', {
       this.match_response = null
       this.lead = null
       this.idempotency_key = ''
+      this.selected_listing_ids = []
       this.persist()
     },
     setMatches(value: MatchResponse): void {
       this.match_response = value
       this.idempotency_key = newIdempotencyKey()
+      this.selected_listing_ids = []
       this.persist()
     },
     setLead(value: LeadRecord): void { this.lead = value; this.persist() },
@@ -214,11 +240,33 @@ export const useDemandStore = defineStore('demand', {
       return true
     },
     finishLeadSubmission(): void { this.submitting = false },
+    toggleListing(listingId: string): boolean {
+      const result = this.match_response?.matches.find((item) => item.listing.listing_id === listingId)
+      if (!result || result.unmet_hard_constraints.length || result.unverified_hard_constraints.length) return false
+      const index = this.selected_listing_ids.indexOf(listingId)
+      if (index >= 0) this.selected_listing_ids.splice(index, 1)
+      else if (this.selected_listing_ids.length < 5) this.selected_listing_ids.push(listingId)
+      this.persist()
+      return true
+    },
+    prepareDemand(demand: DemandDraft): void {
+      this.demand = JSON.parse(JSON.stringify(demand)) as DemandDraft
+      this.interpretation = null
+      this.match_response = null
+      this.lead = null
+      this.idempotency_key = ''
+      this.selected_listing_ids = []
+      this.persist()
+    },
     hydrate(): void {
       try {
         removeStored(V1_DEMAND_STORAGE_KEY)
         const saved = readVersionedJson(DEMAND_STORAGE_KEY, DEMAND_STORAGE_VERSION, isDemandSnapshot)
-        if (saved) { this.$patch(saved); removeStored(V2_DEMAND_STORAGE_KEY); return }
+        if (saved) { this.$patch(saved); removeStored(V3_DEMAND_STORAGE_KEY); removeStored(V2_DEMAND_STORAGE_KEY); return }
+        const v3 = readJson<{ version: number; data: unknown }>(V3_DEMAND_STORAGE_KEY)
+        removeStored(V3_DEMAND_STORAGE_KEY)
+        const migratedV3 = v3?.version === 3 ? migrateV3Snapshot(v3.data) : null
+        if (migratedV3) { this.$patch(migratedV3); this.persist(); removeStored(V2_DEMAND_STORAGE_KEY); return }
         const v2 = readJson<{ version: number; data: unknown }>(V2_DEMAND_STORAGE_KEY)
         removeStored(V2_DEMAND_STORAGE_KEY)
         const migrated = v2?.version === 2 ? migrateV2Snapshot(v2.data) : null
@@ -226,6 +274,7 @@ export const useDemandStore = defineStore('demand', {
       } catch {
         this.$reset()
         removeStored(DEMAND_STORAGE_KEY)
+        removeStored(V3_DEMAND_STORAGE_KEY)
         removeStored(V2_DEMAND_STORAGE_KEY)
         removeStored(V1_DEMAND_STORAGE_KEY)
       }
@@ -233,12 +282,13 @@ export const useDemandStore = defineStore('demand', {
     persist(): void {
       writeVersionedJson<DemandSnapshot>(DEMAND_STORAGE_KEY, DEMAND_STORAGE_VERSION, {
         demand: this.demand, interpretation: this.interpretation, match_response: this.match_response,
-        lead: this.lead, idempotency_key: this.idempotency_key,
+        lead: this.lead, idempotency_key: this.idempotency_key, selected_listing_ids: this.selected_listing_ids,
       })
     },
     resetFlow(): void {
       this.$reset()
       removeStored(DEMAND_STORAGE_KEY)
+      removeStored(V3_DEMAND_STORAGE_KEY)
       removeStored(V2_DEMAND_STORAGE_KEY)
       removeStored(V1_DEMAND_STORAGE_KEY)
     },

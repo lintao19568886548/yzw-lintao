@@ -195,8 +195,7 @@ pub fn interpret_local(mut draft: DemandDraft) -> Result<DemandDraft, String> {
 fn normalize(value: &str) -> String {
     value
         .to_ascii_lowercase()
-        .replace(',', "")
-        .replace('，', "")
+        .replace(',', "，")
         .replace('～', "-")
         .replace('—', "-")
         .replace('至', "-")
@@ -353,12 +352,16 @@ fn parse_move_in_time(text: &str) -> Option<String> {
 }
 
 fn classify_constraint(text: &str, keyword: &str, key: ConstraintKey, draft: &mut DemandDraft) {
-    let preference = text.contains(&format!("最好{keyword}"))
-        || text.contains(&format!("优先{keyword}"))
-        || text.contains(&format!("希望{keyword}"));
+    let clause = nearby_constraint_clause(text, keyword);
+    let preference = ["最好", "优先", "希望", "尽量"]
+        .into_iter()
+        .any(|marker| clause.contains(marker));
     let level = if preference {
         ConstraintLevel::Preference
-    } else if text.contains("必须") || text.contains("需要") || text.contains("要求") {
+    } else if ["必须", "需要", "要求", "务必"]
+        .into_iter()
+        .any(|marker| clause.contains(marker))
+    {
         ConstraintLevel::Hard
     } else {
         ConstraintLevel::Preference
@@ -374,6 +377,39 @@ fn classify_constraint(text: &str, keyword: &str, key: ConstraintKey, draft: &mu
             .constraint_priorities
             .push(ConstraintPriority { key, level });
     }
+}
+
+fn nearby_constraint_clause(text: &str, keyword: &str) -> String {
+    let structured = text
+        .replace("同时", "，")
+        .replace("另外", "，")
+        .replace("并且", "，");
+    let actual_keyword = if structured.contains(keyword) {
+        keyword
+    } else if keyword == "电梯" && structured.contains("货梯") {
+        "货梯"
+    } else {
+        return String::new();
+    };
+    let Some(position) = structured.find(actual_keyword) else {
+        return String::new();
+    };
+    let is_boundary = |character: char| {
+        matches!(
+            character,
+            '，' | '。' | '；' | ';' | '！' | '!' | '？' | '?'
+        )
+    };
+    let start = structured[..position]
+        .rfind(is_boundary)
+        .map_or(0, |index| {
+            index + structured[index..].chars().next().map_or(0, char::len_utf8)
+        });
+    let suffix_start = position + actual_keyword.len();
+    let end = structured[suffix_start..]
+        .find(is_boundary)
+        .map_or(structured.len(), |index| suffix_start + index);
+    structured[start..end].to_string()
 }
 
 fn dedupe(values: &mut Vec<String>) {
@@ -634,6 +670,25 @@ mod tests {
         assert!(result.constraint_priorities.iter().any(|priority| {
             priority.key == ConstraintKey::FreightElevator
                 && priority.level == ConstraintLevel::Preference
+        }));
+    }
+
+    #[test]
+    fn 组合句按字段附近短语区分偏好与硬条件() {
+        let result = interpret_local(draft(
+            "松山湖1500平方米厂房，最好有3吨货梯，同时需要500kVA用电",
+        ))
+        .expect("local parser");
+        assert!(result.constraint_priorities.iter().any(|priority| {
+            priority.key == ConstraintKey::FreightElevator
+                && priority.level == ConstraintLevel::Preference
+        }));
+        assert!(result.constraint_priorities.iter().any(|priority| {
+            priority.key == ConstraintKey::ElevatorCapacity
+                && priority.level == ConstraintLevel::Preference
+        }));
+        assert!(result.constraint_priorities.iter().any(|priority| {
+            priority.key == ConstraintKey::PowerCapacity && priority.level == ConstraintLevel::Hard
         }));
     }
 }

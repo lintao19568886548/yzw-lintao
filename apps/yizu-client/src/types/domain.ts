@@ -71,6 +71,13 @@ export interface ListingSummary {
   data_gaps: string[]
 }
 
+export interface ListingDetail extends ListingSummary {
+  approximate_location: string
+  building_height_m: number | null
+  image_caption: string
+  image_tone: 'cinnabar' | 'gold' | 'ink' | 'jade'
+}
+
 export interface MatchDimensionScore {
   dimension: string
   score: number
@@ -122,6 +129,17 @@ export interface LeadRecord {
   sla_minutes: number
   created_at_epoch_seconds: number
   temporary_storage: boolean
+}
+
+export interface DemandHistoryItem {
+  demand_number: string
+  lead_number: string
+  created_at_epoch_seconds: number
+  status: AdvisorAssignmentStatus
+  sla_minutes: number
+  masked_phone: string
+  demand: DemandDraft
+  listings: ListingSummary[]
 }
 
 export interface ApiFieldError {

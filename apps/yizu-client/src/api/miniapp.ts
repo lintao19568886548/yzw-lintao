@@ -1,8 +1,10 @@
 import { requestApi } from './client'
+import { localDemoApi } from './local-demo'
+import { localDemoMode } from '@/config/runtime'
 import type { InterpretDemandRequest, MatchRequest, MiniappApi, SubmitLeadRequest, DevSessionRequest } from '@/types/api'
 import type { DemandInterpretation, DevSessionResponse, LeadRecord, MatchResponse, MetadataOptions } from '@/types/domain'
 
-export const miniappApi: MiniappApi = {
+const bffApi: MiniappApi = {
   createDevSession(request: DevSessionRequest) {
     return requestApi<DevSessionResponse>('/api/miniapp/v1/auth/dev-session', 'POST', request)
   },
@@ -19,3 +21,6 @@ export const miniappApi: MiniappApi = {
     return requestApi<MetadataOptions>('/api/miniapp/v1/metadata/options', 'GET')
   },
 }
+
+export const miniappApi: MiniappApi = localDemoMode ? localDemoApi : bffApi
+export const miniappDataMode = localDemoMode ? 'local-demo' : 'rust-bff'

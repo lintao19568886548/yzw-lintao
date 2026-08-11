@@ -23,6 +23,10 @@ export function mapApiError(error: unknown): string {
   return '网络请求失败，请检查连接后重试'
 }
 
+export function isSessionError(error: unknown): boolean {
+  return error instanceof ApiError && (error.code === 'SESSION_EXPIRED' || error.code === 'UNAUTHENTICATED')
+}
+
 export async function requestApi<T>(
   path: string,
   method: 'GET' | 'POST',

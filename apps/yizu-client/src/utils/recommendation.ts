@@ -34,7 +34,7 @@ export function mapMatchToCard(result: MatchResult): ListingCardView {
     verification: listing.verification_level.toUpperCase(),
     source: listing.source_label,
     reasons: result.recommendation_reasons.slice(0, 3),
-    warnings: [...result.unmet_conditions, ...result.data_gaps],
+    warnings: [...result.data_gaps],
     satisfiedHard: result.satisfied_hard_constraints.map((item) => item.detail),
     blockedHard: [...result.unmet_hard_constraints, ...result.unverified_hard_constraints].map((item) => item.detail),
     unmetPreferences: result.unmet_preferences.map((item) => item.detail),

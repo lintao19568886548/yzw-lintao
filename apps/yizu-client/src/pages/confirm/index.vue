@@ -3,8 +3,9 @@ import { computed, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { onShow } from '@dcloudio/uni-app'
 import DemoBadge from '@/components/DemoBadge.vue'
+import DemandSummary from '@/components/DemandSummary.vue'
 import { miniappApi } from '@/api/miniapp'
-import { mapApiError } from '@/api/client'
+import { isSessionError, mapApiError } from '@/api/client'
 import { requireAuth } from '@/composables/useAuthGuard'
 import { restoreFlowState, useDemandForm } from '@/composables/useDemandForm'
 import { useAuthStore } from '@/stores/auth'
@@ -53,7 +54,7 @@ const confidence = computed(() => `${Math.round(demand.value.ai_confidence * 100
 onShow(async () => {
   restoreFlowState(auth, store, syncFromStore)
   if (!requireAuth(auth)) return
-  if (!store.interpretation) uni.reLaunch({ url: '/pages/home/index' })
+  if (!store.interpretation) { uni.switchTab({ url: '/pages/home/index' }); return }
   await metadata.load(demand.value.constraints.target_towns)
 })
 
@@ -116,6 +117,7 @@ async function match(): Promise<void> {
     store.setMatches(response)
     uni.navigateTo({ url: '/pages/results/index' })
   } catch (error) {
+    if (isSessionError(error)) { auth.clear(); requireAuth(auth); return }
     errorMessage.value = mapApiError(error)
   } finally {
     loading.value = false
@@ -126,6 +128,7 @@ async function match(): Promise<void> {
 
 <template>
   <view class="page-shell content-width">
+    <view class="page-head"><text class="page-kicker">AI 已完成第一轮理解</text><text class="page-title">请确认你的找房条件</text><text class="page-desc">信息不完整也没关系，补齐必要字段后即可匹配。硬条件会由服务端再次核验。</text></view>
     <view class="summary card">
       <DemoBadge />
       <view class="summary-row"><text>AI提供方</text><text>{{ store.interpretation?.provider ?? 'local' }}</text></view>
@@ -133,6 +136,7 @@ async function match(): Promise<void> {
       <view v-if="store.interpretation?.fallback_reason" class="notice">已回退本地解析：{{ store.interpretation.fallback_reason }}</view>
       <view v-if="demand.missing_fields.length" class="notice">尚缺必要字段：{{ demand.missing_fields.map((item) => missingLabels[item] ?? item).join('、') }}</view>
       <view v-if="metadata.notice" class="notice">{{ metadata.notice }}</view>
+      <view class="divider" /><DemandSummary :demand="demand" />
     </view>
 
     <view class="card form-card">
@@ -184,8 +188,8 @@ async function match(): Promise<void> {
       <view class="field"><text class="field-label">其他补充</text><textarea v-model="demand.constraints.other_notes" class="textarea small" maxlength="500" /></view>
       <view class="field"><text class="field-label">硬条件（顿号/逗号分隔）</text><textarea v-model="hardText" class="textarea small" maxlength="1000" /></view>
       <view class="field"><text class="field-label">偏好条件（顿号/逗号分隔）</text><textarea v-model="preferenceText" class="textarea small" maxlength="1000" /></view>
-      <text v-if="errorMessage" class="error">{{ errorMessage }}</text>
-      <button class="primary-button" :disabled="loading" @click="match">{{ loading ? '正在匹配演示房源…' : '确认需求并开始匹配' }}</button>
+      <view v-if="errorMessage" class="error-panel">{{ errorMessage }}</view>
+      <view class="sticky-action"><view><text class="action-title">条件确认完成</text><text class="muted">将匹配 3-10 套已核验房源</text></view><button class="primary-button" :disabled="loading" @click="match">{{ loading ? '正在匹配…' : '开始智能匹配' }}</button></view>
     </view>
   </view>
 </template>
@@ -202,4 +206,6 @@ async function match(): Promise<void> {
 .textarea.small { min-height: 130rpx; }
 .priority-row { display: flex; align-items: center; justify-content: space-between; margin-top: 12rpx; }
 .picker.compact { min-width: 180rpx; padding: 12rpx 18rpx; }
+.action-title { display: block; color: #5a302c; font-size: 24rpx; font-weight: 900; }
+.sticky-action > view { flex: 0 0 235rpx; }.sticky-action .primary-button { min-width: 0; }
 </style>
