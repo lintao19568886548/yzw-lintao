@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onReady } from '@dcloudio/uni-app'
 import { miniappApi } from '@/api/miniapp'
 import { mapApiError } from '@/api/client'
 import { localDemoMode } from '@/config/runtime'
@@ -28,6 +28,9 @@ const canSubmit = computed(() => canSubmitLogin(phone.value, agreed.value, loadi
 
 onLoad(() => {
   auth.hydrate()
+})
+
+onReady(() => {
   if (auth.is_authenticated) goHome()
 })
 

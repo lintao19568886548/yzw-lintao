@@ -13,6 +13,7 @@ import { useDemandStore } from '@/stores/demand'
 import { useMetadataStore } from '@/stores/metadata'
 import type { ConstraintKey, ConstraintLevel, RentUnit, SpaceType } from '@/types/domain'
 import { constraintHasValue, effectiveConstraintLevel, setConstraintLevel } from '@/utils/constraint-priority'
+import { goHome } from '@/utils/navigation'
 import { validateConfirmedDemand } from '@/utils/validation'
 
 const auth = useAuthStore()
@@ -54,7 +55,7 @@ const confidence = computed(() => `${Math.round(demand.value.ai_confidence * 100
 onShow(async () => {
   restoreFlowState(auth, store, syncFromStore)
   if (!requireAuth(auth)) return
-  if (!store.interpretation) { uni.switchTab({ url: '/pages/home/index' }); return }
+  if (!store.interpretation) { goHome(); return }
   await metadata.load(demand.value.constraints.target_towns)
 })
 

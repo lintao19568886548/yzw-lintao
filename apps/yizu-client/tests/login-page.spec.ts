@@ -91,4 +91,9 @@ describe('登录页状态与演示登录', () => {
     expect(loginTemplate).toContain(':disabled="!canSubmit"')
     expect(loginTemplate).toContain('@click="login"')
   })
+
+  it('已登录启动跳转等待页面 ready，避免在 onLoad 阶段抢占 tabBar 初始化', () => {
+    expect(loginPageSource).toMatch(/onLoad\(\(\) => \{\s+auth\.hydrate\(\)\s+\}\)/u)
+    expect(loginPageSource).toMatch(/onReady\(\(\) => \{\s+if \(auth\.is_authenticated\) goHome\(\)\s+\}\)/u)
+  })
 })

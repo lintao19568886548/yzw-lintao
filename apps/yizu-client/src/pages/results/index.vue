@@ -9,6 +9,7 @@ import { requireAuth } from '@/composables/useAuthGuard'
 import { restoreFlowState } from '@/composables/useDemandForm'
 import { useAuthStore } from '@/stores/auth'
 import { useDemandStore } from '@/stores/demand'
+import { goHome } from '@/utils/navigation'
 
 const auth = useAuthStore()
 const store = useDemandStore()
@@ -18,7 +19,7 @@ const selectedCount = computed(() => store.selected_listing_ids.length)
 onShow(() => {
   restoreFlowState(auth, store, () => undefined)
   if (!requireAuth(auth)) return
-  if (!store.match_response) uni.switchTab({ url: '/pages/home/index' })
+  if (!store.match_response) goHome()
 })
 
 function viewDetail(listingId: string): void {
