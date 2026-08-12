@@ -29,10 +29,10 @@ function logout(): void {
       <view class="profile-card card"><view class="avatar">企</view><view class="profile-copy"><strong>企业找房用户</strong><text>{{ auth.masked_phone }}</text></view><DemoBadge v-if="localDemoMode" /></view>
       <view class="stats"><view><strong>{{ history.items.length }}</strong><text>已提交需求</text></view><view><strong>15</strong><text>分钟响应目标</text></view><view><strong>3</strong><text>空间类型</text></view></view>
       <view class="card"><text class="section-title">找房服务</text><view class="menu-row"><text class="menu-icon">需</text><view><strong>我的找房需求</strong><small>查看提交记录与当前状态</small></view><text>›</text></view><view class="menu-row"><text class="menu-icon">顾</text><view><strong>顾问服务</strong><small>提交后由专业招商顾问联系</small></view><text>›</text></view></view>
-      <view class="card"><text class="section-title">账号与安全</text><view class="menu-row"><text class="menu-icon">隐</text><view><strong>隐私保护</strong><small>不展示真实业主隐私与精确门牌</small></view><text>›</text></view><view class="menu-row"><text class="menu-icon">企</text><view><strong>企业认证</strong><small>后续版本开放</small></view><text class="tag gold">待接入</text></view></view>
-      <view class="notice">P0-01 运行验收仍为 BLOCKED。本地 MVP 可演示，但不代表测试或生产部署已获准。</view>
+      <view class="card"><text class="section-title">账号与安全</text><view class="menu-row"><text class="menu-icon">隐</text><view><strong>隐私保护</strong><small>不展示真实业主隐私与精确门牌</small></view><text>›</text></view><view class="menu-row"><text class="menu-icon">企</text><view><strong>企业资料</strong><small>专业顾问将协助核验您的找房需求</small></view><text class="tag gold">顾问协助</text></view></view>
+      <view class="notice">您的找房需求仅用于空间匹配与顾问服务，我们不会公开展示企业联系方式。</view>
       <button class="danger-button" @click="logout">退出登录</button>
-      <text class="version">宜租网微信小程序 MVP · v0.2.0</text>
+      <text class="version">宜租网——企业选址与空间租赁智能服务平台</text>
     </view>
   </view>
 </template>

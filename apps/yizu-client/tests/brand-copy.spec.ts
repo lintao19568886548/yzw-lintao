@@ -19,6 +19,7 @@ describe('宜租网品牌定位文案', () => {
   const brandHeader = readFileSync(join(clientSource, 'components/BrandHeader.vue'), 'utf8')
   const home = readFileSync(join(clientSource, 'pages/home/index.vue'), 'utf8')
   const login = readFileSync(join(clientSource, 'pages/login/index.vue'), 'utf8')
+  const profile = readFileSync(join(clientSource, 'pages/profile/index.vue'), 'utf8')
   const manifest = JSON.parse(readFileSync(join(clientSource, 'manifest.json'), 'utf8')) as { description: string }
 
   it('统一品牌定位、首页主标题、服务范围与信任文案', () => {
@@ -31,6 +32,13 @@ describe('宜租网品牌定位文案', () => {
 
   it('完整平台介绍使用统一文案', () => {
     expect(manifest.description).toBe('宜租网——企业选址与空间租赁智能服务平台')
+    expect(profile).toContain('宜租网——企业选址与空间租赁智能服务平台')
+  })
+
+  it('个人中心只展示用户可理解的服务状态', () => {
+    expect(profile).toContain('专业顾问将协助核验您的找房需求')
+    expect(profile).toContain('您的找房需求仅用于空间匹配与顾问服务')
+    expect(profile).not.toMatch(/P0-\d+|BLOCKED|后续版本开放|待接入|MVP\s*·/)
   })
 
   it('用户界面不再出现旧地域品牌文案，但保留东莞业务范围', () => {
